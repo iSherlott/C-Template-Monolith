@@ -276,8 +276,14 @@ Atualiza a ordem padrão definida em `01-HOST/RULES.md` seção 5:
 
 ```csharp
 builder.Services.AddInfrastructure(builder.Configuration);   // inclui AddSecurity() (JWT bearer) + AddAuthorizationPolicies() (seção 7)
+builder.Services.AddSwaggerDocumentation();                  // 01-HOST/RULES.md seção 3.1
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwaggerDocumentation();                           // só em Development — 01-HOST/RULES.md seção 3.1
+}
 
 app.UseMiddleware<GlobalExceptionMiddleware>();          // 1. captura qualquer exceção dali pra frente
 app.UseAuthentication();                                 // 2. resolve quem é o usuário (token → claims)

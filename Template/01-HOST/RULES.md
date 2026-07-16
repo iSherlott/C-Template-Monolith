@@ -152,6 +152,129 @@ public static class ModuleRegistration
 - Registro de Controllers de cada módulo (application parts) é responsabilidade do próprio `Install()` do módulo, não do Host fazer assembly-scanning de controllers separadamente.
 - Registro de health checks específicos (ex: "consumer X está processando") é responsabilidade do módulo/infra que o possui, registrado dentro do próprio `Install()`/`AddInfrastructure()`. O Host só agrega e expõe o endpoint (`app.MapHealthChecks(...)`).
 
+### 3.1 Documentação da API — Swagger nativo, abre sozinho ao rodar local
+
+**Decisão:** todo Host expõe Swagger UI desde o primeiro dia, gerado a
+partir dos próprios `Controller`/`Dto`/`Command` de cada módulo — não é um
+extra opcional adicionado depois. Usa **`Swashbuckle.AspNetCore`**
+(`AddSwaggerGen`/`UseSwagger`/`UseSwaggerUI`), não o gerador mínimo
+`Microsoft.AspNetCore.OpenApi` do .NET — o motivo é a integração pronta
+com o esquema de segurança JWT (seção abaixo), que o gerador mínimo exige
+configurar manualmente via `IOpenApiDocumentTransformer`.
+
+```csharp
+// Host/DependencyInjection/SwaggerExtensions.cs
+public static class SwaggerExtensions
+{
+    public static IServiceCollection AddSwaggerDocumentation(this IServiceCollection services)
+    {
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new OpenApiInfo { Title = "<NomeDoProjeto>", Version = "v1" });
+
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Name = "Authorization",
+                Type = SecuritySchemeType.Http,
+                Scheme = "Bearer",
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header,
+                Description = "Informe apenas o token — o prefixo \"Bearer \" é adicionado automaticamente."
+            });
+
+            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                    },
+                    Array.Empty<string>()
+                }
+            });
+        });
+
+        return services;
+    }
+
+    public static IApplicationBuilder UseSwaggerDocumentation(this IApplicationBuilder app)
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "<NomeDoProjeto> v1");
+            options.RoutePrefix = "swagger";
+        });
+
+        return app;
+    }
+}
+```
+
+Chamado a partir de `Program.cs`, seguindo a mesma regra de "só métodos de
+extensão" da seção 3:
+
+```csharp
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddModules(builder.Configuration);
+builder.Services.AddSwaggerDocumentation();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    // ... migrations ...
+    app.UseSwaggerDocumentation();
+}
+```
+
+- **Só em `Development`** (mesmo bloco `if` que já roda as migrations) —
+  Swagger UI expõe o schema completo da API; não é exposto por padrão em
+  produção, mesmo padrão de qualquer outro detalhe de diagnóstico
+  (`ARCHITECTURE-RULES.md`).
+- **`AddSecurityDefinition`/`AddSecurityRequirement`** fazem o botão
+  "Authorize" aparecer no Swagger UI com um campo pra colar o JWT (obtido
+  via `POST /api/auth/login` — `SECURITY/RULES.md` seção 5) — depois de
+  autorizado uma vez, toda chamada "Try it out" na UI já inclui o header
+  `Authorization: Bearer <token>` automaticamente, sem precisar colar o
+  token em cada endpoint manualmente.
+- **`Swashbuckle.AspNetCore` fixado na faixa `9.x`, não a mais recente
+  disponível** — a partir da `10.x`, o pacote passou a trazer uma versão
+  do `Microsoft.OpenApi` (`2.x`) que reestruturou o namespace
+  `Microsoft.OpenApi.Models` (quebra de compilação com os exemplos desta
+  seção). Antes de atualizar a versão principal do Swashbuckle, confirmar
+  que o namespace dos tipos (`OpenApiInfo`, `OpenApiSecurityScheme`, ...)
+  continua o mesmo.
+- `RoutePrefix = "swagger"` (não `string.Empty`) — mantém a raiz (`/`)
+  livre para uso futuro (health check, redirect, landing page) sem
+  competir com o Swagger UI.
+
+**Abrir direto no Swagger ao rodar localmente** — `Host/Properties/launchSettings.json`
+configura o navegador para abrir automaticamente na página do Swagger
+assim que o projeto sobe (`dotnet run`/F5 na IDE):
+
+```json
+{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5245",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+```
+
+- `launchUrl` casa com `RoutePrefix` acima (`"swagger"`, sem barra inicial
+  — o launchSettings já concatena com `applicationUrl`).
+- Isso só afeta `dotnet run`/IDE (com o profile de launch ativo) — não
+  afeta execução em container/produção, onde não há navegador para abrir.
+
 ## 4. Configuração (`appsettings`)
 
 - Cada módulo lê sua própria seção namespaced, nunca uma raiz compartilhada: `Modules:Vendas`, `Modules:Estoque`. O Host não sabe (nem precisa saber) o formato interno dessas seções — ele só repassa `IConfiguration` inteiro para o `Install()` de cada `IModuleInstaller`, que extrai sua própria fatia.
@@ -165,10 +288,11 @@ public static class ModuleRegistration
 - Ordem padrão de pipeline (ajustar quando houver necessidade concreta, registrando o motivo):
   1. `GlobalExceptionMiddleware` (`02-INFRASTRUCTURE/SECURITY/RULES.md` seção 6)
   2. Correlation id / logging de request
-  3. `UseAuthentication()` (JWT — `SECURITY/RULES.md` seção 8)
-  4. `UseAuthorization()` (policies por grupo — `SECURITY/RULES.md` seção 7)
-  5. `UseModules()` (`Use()` de cada `IModuleInstaller` — seção 3 acima)
-  6. Roteamento para Controllers de módulo (`MapControllers()`)
+  3. `UseSwaggerDocumentation()`, só em `Development` (seção 3.1 acima)
+  4. `UseAuthentication()` (JWT — `SECURITY/RULES.md` seção 8)
+  5. `UseAuthorization()` (policies por grupo — `SECURITY/RULES.md` seção 7)
+  6. `UseModules()` (`Use()` de cada `IModuleInstaller` — seção 3 acima)
+  7. Roteamento para Controllers de módulo (`MapControllers()`)
 - Middlewares específicos de um módulo (ex: um filtro que só faz sentido para os endpoints de Vendas) são registrados dentro do próprio módulo via `MapGroup`/filtro local — não entram na lista global do Host.
 
 ## 6. Background workers e Consumers
