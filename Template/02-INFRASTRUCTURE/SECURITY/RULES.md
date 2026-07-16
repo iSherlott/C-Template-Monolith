@@ -18,7 +18,7 @@ pertence é dado de negócio — mora num módulo (seção 5), nunca aqui.**
 | Mecanismo de autenticação | **JWT** (Bearer token), `Microsoft.AspNetCore.Authentication.JwtBearer` |
 | Autorização | **Baseada em Policy** (`[Authorize(Policy = "...")]`), nunca `[Authorize(Roles = "...")]` cru espalhado pelos Controllers |
 | Hash de senha | **`IPasswordHasher`** — `Rfc2898DeriveBytes`/PBKDF2 (biblioteca padrão do .NET, sem dependência externa) |
-| Exceções de negócio esperadas | Já cobertas por `Result<T>.Failure` (`HANDLER/RULES.md` seção 6) — Security só endereça exceção **não esperada** |
+| Exceções de negócio esperadas | Já cobertas por `Result<T>.Failure` (`HANDLER/RULES.md` seção 7) — Security só endereça exceção **não esperada** |
 | Middleware de exceção | Global, único, no Host — nenhum módulo captura exceção de infraestrutura manualmente |
 
 ## 3. Estrutura de pastas
@@ -148,7 +148,7 @@ public class UnauthorizedAppException : AppException
 }
 ```
 
-- **Isso não substitui `Result<T>.Failure`** (`HANDLER/RULES.md` seção 6) —
+- **Isso não substitui `Result<T>.Failure`** (`HANDLER/RULES.md` seção 7) —
   continua sendo o caminho padrão para toda falha de negócio esperada
   dentro de um `Handler`. `AppException` (e subclasses) é para os poucos
   casos que acontecem **fora** de um `Handler` — ex: middleware de
@@ -302,7 +302,7 @@ app.Run();
 | `Usuario`/senha/grupo modelado dentro de `Infrastructure/Security` | `Infrastructure` não conhece dado de negócio — isso é módulo (seção 5) |
 | `[Authorize(Roles = "Administrador")]` com string literal repetida em Controllers diferentes | Usa a constante de `Shared/Security/GruposDeAcesso` — evita divergência silenciosa de nome de grupo |
 | Controller sem `[Authorize]` nem `[AllowAnonymous]` | Ambíguo se é proposital ou esquecimento — todo Controller declara a intenção explicitamente |
-| `Handler` capturando exceção de infraestrutura pra virar resposta HTTP manualmente | É o que `GlobalExceptionMiddleware` já faz — duplicação, ver `HANDLER/RULES.md` seção 6 |
+| `Handler` capturando exceção de infraestrutura pra virar resposta HTTP manualmente | É o que `GlobalExceptionMiddleware` já faz — duplicação, ver `HANDLER/RULES.md` seção 7 |
 | Chave secreta do JWT versionada em `appsettings.json` | Mesma regra de qualquer segredo (`01-HOST/RULES.md` seção 4) |
 | `DomainException` tratada como `401`/`403`/`404` no middleware | `DomainException` é sempre bug (`500`) — só `AppException` (seção 6) tem status HTTP próprio |
 

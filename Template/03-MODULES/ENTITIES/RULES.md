@@ -66,7 +66,7 @@ public class Pedido : AggregateRoot // base definida em Shared/Kernel — SHARED
 
 - **Construtor privado + factory method estático** (`Criar`) — não existe `new Pedido()` público. Toda `Entity` só nasce em estado válido.
 - Propriedades com `private set` (ou sem setter, só leitura). Mutação sempre por método nomeado com verbo de domínio (`AdicionarItem`, `Cancelar`, `Confirmar`) — nunca `pedido.Status = ...` de fora.
-- Invariante de domínio violado lança `DomainException` (definida em `Shared/Kernel`) — isso é diferente de uma falha de negócio esperada tratada como `Result.Failure` no `Handler` (`HANDLER/RULES.md` seção 6): violação de invariante dentro da própria `Entity` é sinal de bug (alguém tentou colocar o objeto num estado impossível), não uma condição de negócio antecipada. O `Handler` decide se aquilo é esperado (e então nem chama o método) ou deixa a exceção propagar como erro real.
+- Invariante de domínio violado lança `DomainException` (definida em `Shared/Kernel`) — isso é diferente de uma falha de negócio esperada tratada como `Result.Failure` no `Handler` (`HANDLER/RULES.md` seção 7): violação de invariante dentro da própria `Entity` é sinal de bug (alguém tentou colocar o objeto num estado impossível), não uma condição de negócio antecipada. O `Handler` decide se aquilo é esperado (e então nem chama o método) ou deixa a exceção propagar como erro real.
 
 **Visibilidade:** apesar de "totalmente privada" ao módulo em termos de quem
 a referencia (nenhum outro módulo importa uma `Entity`), a classe em si é
@@ -90,7 +90,7 @@ C#.
 
 - Atributos de mapeamento (`[Table]`, `[Column]`, `[Key]`) — mapeamento é responsabilidade do `Repository` (`REPOSITORIES/RULES.md`), que monta a `Entity` manualmente a partir do resultado da query ou usa reflection controlada apenas para reconstituição, nunca a `Entity` decorada para isso.
 - Qualquer `using` de `System.Data`, Dapper, ou qualquer tipo de `Infrastructure`.
-- Qualquer referência a `Dto` — `Entity` não sabe que `Contracts` existe; é o `Handler` que faz essa ponte (`HANDLER/RULES.md` seção 7).
+- Qualquer referência a `Dto` — `Entity` não sabe que `Contracts` existe; é o `Handler` que faz essa ponte (`HANDLER/RULES.md` seção 8).
 
 ## 6. Anti-padrões — o que nunca pode aparecer aqui
 

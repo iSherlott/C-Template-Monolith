@@ -20,43 +20,54 @@ Modules/<NomeModulo>/
     └── <Recurso>Controller.cs       # ex: PedidosController.cs
 ```
 
-Um `Controller` por recurso/agregado principal do módulo — não um único
-`Controller` cobrindo múltiplos agregados sem relação direta.
+Um `Controller` por área de recurso do módulo — pode cobrir mais de um
+Aggregate Root quando eles compartilham o mesmo prefixo de rota lógico (ex:
+`CatalogoController` responde por `api/catalogo/generos` e
+`api/catalogo/animes`, dois Aggregate Roots diferentes sob o mesmo módulo).
+O que o `Controller` nunca faz é misturar recursos **sem relação** só por
+conveniência — `HANDLER/RULES.md` seção 4 tem o critério de quando isso
+deveria ser dois `Controller`s (e dois `Handler`s) em vez de um.
 
-## 3. Regra de composição — Handler injetado direto
+## 3. Regra de composição — Handler injetado direto, um por Aggregate Root
 
 Consistente com `ARCHITECTURE-RULES.md` seção 7 (sem mediator, resolução
-manual via DI): o `Controller` injeta cada `Handler` que usa diretamente no
-construtor, um por ação.
+manual via DI): o `Controller` injeta o `Handler` de cada Aggregate Root que
+expõe — **um único `Handler` cobre todas as ações daquele recurso**
+(`HANDLER/RULES.md` seção 3), não um `Handler` por ação.
 
 ```csharp
 [ApiController]
 [Route("api/vendas/pedidos")]
 public class PedidosController : ControllerBase
 {
-    private readonly CriarPedidoHandler _criarPedidoHandler;
-    private readonly ObterPedidoPorIdHandler _obterPedidoHandler;
+    private readonly PedidoHandler _pedidoHandler;
 
-    public PedidosController(
-        CriarPedidoHandler criarPedidoHandler,
-        ObterPedidoPorIdHandler obterPedidoHandler)
-    {
-        _criarPedidoHandler = criarPedidoHandler;
-        _obterPedidoHandler = obterPedidoHandler;
-    }
+    public PedidosController(PedidoHandler pedidoHandler) => _pedidoHandler = pedidoHandler;
 
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] CriarPedidoRequest request)
     {
         var command = new CriarPedidoCommand(request.ClienteId, request.Itens);
-        var result = await _criarPedidoHandler.Handle(command);
+        var result = await _pedidoHandler.Handle(command);
+        return result.ToActionResult(StatusCodes.Status201Created);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Get(Guid id)
+    {
+        var result = await _pedidoHandler.Handle(new ObterPedidoPorIdQuery(id));
         return result.ToActionResult();
     }
 }
 ```
 
+Se o `Controller` cobre mais de um Aggregate Root (seção 2), injeta um
+`Handler` por Aggregate Root — nunca um único `Handler` genérico tratando
+substantivos diferentes (`HANDLER/RULES.md` seção 4, critério "banana vs.
+tomate").
+
 - Proibido resolver `Handler` via `IServiceProvider.GetService(...)` (service locator) dentro do método de ação — a dependência é sempre explícita no construtor.
-- Um método de ação chama **exatamente um** `Handler`. Se uma ação parece precisar orquestrar dois Handlers, a orquestração pertence a um `Handler`/`Service` novo, não ao Controller.
+- Um método de ação chama **exatamente um** `Handle` de **um** `Handler`. Se uma ação parece precisar orquestrar dois Handlers de Aggregate Roots diferentes, a orquestração pertence a um `Service`/evento assíncrono, não ao Controller.
 
 ## 4. Rota e nomenclatura
 

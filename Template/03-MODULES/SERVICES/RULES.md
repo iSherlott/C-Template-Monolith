@@ -58,7 +58,7 @@ internal class VendasModuleFacade : IVendasModule
 ## 6. Transação — `Service` participa, não decide
 
 Quando um `Service` é chamado a partir de um `Handler` que já está dentro de
-um fluxo transacional (`HANDLER/RULES.md` seção 3), o `IUnitOfWork` é
+um fluxo transacional (`HANDLER/RULES.md` seção 5), o `IUnitOfWork` é
 passado para o `Service`, que repassa para o `Repository` — o `Service` nunca
 abre sua própria transação por conta própria quando está participando de um
 fluxo maior. Um `Service` chamado fora de um fluxo transacional (ex: pela

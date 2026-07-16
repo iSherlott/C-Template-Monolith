@@ -42,7 +42,7 @@ consolida a ordem de execução. Usado principalmente pelo
 
 ## 5. Repositories
 
-- [ ] Interface em `Repositories/Interface/` (`public`) + implementação concreta em `Repositories/Implementation/` (`internal`), ambas privadas ao módulo em termos de quem referencia (`ARCHITECTURE-RULES.md` §5.1, `REPOSITORIES/RULES.md` §2)
+- [ ] Interface em `Repositories/Contracts/` (`public`, pasta local — não confundir com `Shared/Contracts`) + implementação concreta na raiz de `Repositories/` (`internal`), ambas privadas ao módulo em termos de quem referencia (`ARCHITECTURE-RULES.md` §5.1, `REPOSITORIES/RULES.md` §2)
 - [ ] Métodos de escrita recebem `IUnitOfWork` explícito (nunca `IDbConnection`/`IDbTransaction` crus)
 - [ ] Toda query qualifica `<schema-do-modulo>.<tabela>` — nunca cross-schema
 - [ ] `Repository` só da Aggregate Root, nunca de entidade filha
@@ -50,7 +50,8 @@ consolida a ordem de execução. Usado principalmente pelo
 
 ## 6. Handlers
 
-- [ ] Um `Handler` por `Command`/`Query`, método `Handle`
+- [ ] Um `Handler` por Aggregate Root/recurso, implementando `IHandler<TCommand,TResult>` uma vez por `Command`/`Query` aceito — nunca um `Handler` por `Command`/`Query` individual
+- [ ] Segundo `Handler` só criado se o módulo expõe outro substantivo distinto sob o mesmo `Controller` (critério "banana vs. tomate" — `HANDLER/RULES.md` seção 4)
 - [ ] Retorno sempre `Task<Result<TDto>>`
 - [ ] Nunca instancia `IDbConnection`/`IDbTransaction` diretamente — só pede `IUnitOfWork` a `IUnitOfWorkFactory`
 - [ ] Falha de negócio esperada vira `Result.Failure(Error)`; erro de infraestrutura propaga (não é capturado como `Result.Failure`)

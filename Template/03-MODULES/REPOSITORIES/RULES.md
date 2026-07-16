@@ -14,24 +14,30 @@ resultado de volta em `Entity`.
 ```
 Modules/<NomeModulo>/
 └── Repositories/
-    ├── Interface/
+    ├── Contracts/
     │   └── IPedidoRepository.cs      # interface — public (ver visibilidade abaixo)
-    └── Implementation/
-        └── PedidoRepository.cs       # implementação concreta com Dapper — internal
+    └── PedidoRepository.cs           # implementação concreta com Dapper — internal, na raiz de Repositories/
 ```
 
-- Mesma subpasta por tipo de arquivo (`Interface/`, `Implementation/`) já
-  adotada em `Infrastructure` (`DATABASE/RULES.md` seção 3.1) — pelo mesmo
-  motivo: legibilidade para quem nunca viu a pasta. Quem procura o
-  contrato vai direto em `Interface/`; quem procura como o SQL é montado
-  vai em `Implementation/`. Isso **não é** o mesmo que mover para
-  `Contracts` (`CONTRACTS/RULES.md` seção 1.1) — `Interface/Implementation/`
-  aqui é organização física de arquivo dentro do próprio `Repositories/`,
-  nunca implica que `Repository` cruza a fronteira do módulo.
+- **`Contracts/` aqui é uma pasta local**, só para os contratos de
+  `Repository` deste módulo — não confundir com `Modules/Shared/Contracts/`
+  (cross-módulo) nem com `Modules/<NomeModulo>/Contracts/Dtos/` (superfície
+  HTTP do próprio módulo). São três usos do mesmo nome "Contracts" em
+  profundidades diferentes da árvore, cada um com o mesmo sentido genérico
+  ("aqui moram interfaces/tipos que outro código compila contra"), mas com
+  escopos de visibilidade completamente diferentes — `Repositories/Contracts/`
+  nunca é visto por nada fora do próprio módulo (`CONTRACTS/RULES.md`
+  seção 1.1 detalha por que `Repository` não vai para os outros dois).
+- A implementação concreta fica na **raiz** de `Repositories/`, não numa
+  subpasta própria — só a interface ganha subpasta dedicada. Isso reflete
+  que a implementação é o "conteúdo principal" da pasta (é o que a maioria
+  dos arquivos ali dentro vai ser, à medida que o módulo cresce), enquanto
+  o contrato é a exceção que merece destaque físico.
 - Namespace continua `Modules.<NomeModulo>.Repositories` (ou
   `<NomeModulo>.Repositories`, seguindo a convenção sem prefixo composto)
-  para os arquivos de ambas as subpastas — a divisão é só de arquivo, não
-  de namespace, mesmo raciocínio de `DATABASE/RULES.md` seção 3.1.
+  tanto para a interface em `Contracts/` quanto para a implementação na
+  raiz — a divisão é só de arquivo, não de namespace, mesmo raciocínio de
+  `DATABASE/RULES.md` seção 3.1.
 - Interface e implementação **ambas privadas ao módulo** no sentido de que nenhum outro módulo as referencia — mas com visibilidades C# diferentes: a **interface é `public`** (aparece no construtor `public` do `Handler` — `ARCHITECTURE-RULES.md` seção 5.1) e a **implementação concreta é `internal`** (só é nomeada dentro do próprio `Install()`, nunca em assinatura pública). Isso não abre a fronteira — nenhum outro módulo tem `ProjectReference` para este módulo de qualquer forma (`CONTRACTS/RULES.md` seção 2).
 - Um `Repository` por **Aggregate Root** (`ENTITIES/RULES.md` seção 4) — nunca um `Repository` para uma entidade filha (ex: não existe `IItemDoPedidoRepository`; itens são carregados/salvos como parte do `Pedido`).
 
@@ -124,7 +130,7 @@ que, se recebeu uma `Entity`, ela já está em estado válido.
 |---|---|
 | `Repository` com regra de validação de negócio | Pertence à `Entity` (invariante) ou ao `Handler` (regra de aplicação) |
 | `Repository` de entidade filha (`IItemDoPedidoRepository`) | Quebra o conceito de Aggregate Root |
-| Método de escrita abrindo sua própria transação internamente | Contradiz o padrão de transação explícita controlada pelo `Handler` (`HANDLER/RULES.md` seção 3) |
+| Método de escrita abrindo sua própria transação internamente | Contradiz o padrão de transação explícita controlada pelo `Handler` (`HANDLER/RULES.md` seção 5) |
 | Query contra schema de outro módulo | Viola isolamento de módulo (`DATABASE/RULES.md` seção 6) |
 | `SELECT *` ou SQL concatenado sem parâmetro | Ver `DATABASE/RULES.md` seção 8 |
 | Uso de `Dapper.Contrib`/`Insert<T>` genérico | Perde controle explícito do SQL gerado — proibido nesta arquitetura |

@@ -32,7 +32,8 @@ Modules/
     │   ├── AggregateRoot.cs
     │   ├── Result.cs
     │   ├── Error.cs
-    │   └── DomainException.cs
+    │   ├── DomainException.cs
+    │   └── IHandler.cs               # contrato genérico de Handler — ver HANDLER/RULES.md seção 3
     ├── Security/
     │   └── GruposDeAcesso.cs          # nomes de policy de autorização — ver 02-INFRASTRUCTURE/SECURITY/RULES.md seção 7
     └── Web/
@@ -100,7 +101,7 @@ public class Result : Result<Unit> // operações sem valor de retorno
 
 Todo `Handler` retorna `Result<TDto>` (ou `Result` para operações sem valor
 de retorno) — nunca lança exceção para representar uma falha de negócio
-esperada (`HANDLER/RULES.md` seção 6).
+esperada (`HANDLER/RULES.md` seção 7).
 
 ### `Error` / `ErrorType`
 
@@ -132,6 +133,22 @@ public class DomainException : Exception
 Lançada por uma `Entity` quando um invariante é violado (`ENTITIES/RULES.md`
 seção 3) — representa um bug (estado impossível tentado), não uma falha de
 negócio esperada.
+
+### `IHandler<TCommand, TResult>`
+
+```csharp
+public interface IHandler<in TCommand, TResult>
+{
+    Task<Result<TResult>> Handle(TCommand command);
+}
+```
+
+Contrato genérico que todo `Handler` implementa — **uma vez por
+`Command`/`Query` que aceita**, não uma vez por classe (`HANDLER/RULES.md`
+seção 3 tem o detalhamento completo e o porquê de um único `Handler` cobrir
+múltiplos comandos de um mesmo recurso). Vive em `Kernel` porque é um
+primitivo de composição sem conhecimento de negócio, na mesma categoria de
+`Result<T>`.
 
 ## 4. `IModuleInstaller` — o contrato de descoberta
 

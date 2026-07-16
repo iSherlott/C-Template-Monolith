@@ -39,7 +39,10 @@ Para um módulo novo, o Orchestrator (ou o usuário) fornece:
 1. Entities        — modela o agregado e seus invariantes (ENTITIES/RULES.md)
 2. Commands        — define o que o módulo processa (COMMANDS/RULES.md)
 3. Repositories    — persistência da Aggregate Root (REPOSITORIES/RULES.md)
-4. Handlers        — um por Command/Query (HANDLER/RULES.md)
+4. Handlers        — um por Aggregate Root/recurso, implementando IHandler<TCommand,TResult>
+                      uma vez por Command/Query que o recurso aceita (HANDLER/RULES.md seção 3);
+                      um segundo Handler só se o módulo expõe outro substantivo distinto sob o
+                      mesmo Controller (HANDLER/RULES.md seção 4, critério "banana vs. tomate")
 5. Contracts       — Dtos (dentro do módulo) + I<NomeModulo>/IntegrationEvents
                       (em Modules/Shared/Contracts/, não dentro do módulo — CONTRACTS/RULES.md)
 6. Controller      — exposição HTTP (CONTROLLER/RULES.md)

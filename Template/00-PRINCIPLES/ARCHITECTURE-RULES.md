@@ -148,9 +148,15 @@ pública do `Controller` (que passaria a só conhecer `ICommand<TResult>`) e
 **Decisão:** sem biblioteca mediator (ex: MediatR). `Controller` injeta o
 `Handler` específico diretamente via construtor e chama o método explicitamente.
 
-- Um `Handler` por `Command`/`Query`, método de entrada explícito (ex: `Handle(CriarPedidoCommand command)`).
-- Nenhum `IMediator.Send(...)` genérico. A dependência entre Controller e Handler é explícita e rastreável por "ir para definição", sem indireção de convenção/reflection.
-- Cross-cutting concerns (validação, logging, transação, exceção não tratada) que normalmente viveriam num pipeline de mediator são resolvidos por decoration explícita do `Handler` ou middleware do `Host`: exceção não tratada → `GlobalExceptionMiddleware` (`02-INFRASTRUCTURE/SECURITY/RULES.md` seção 6); transação → `IUnitOfWork` explícito no `Handler` (`HANDLER/RULES.md` seção 3); validação de forma → `[ApiController]`/data annotation na borda (`CONTROLLER/RULES.md` seção 6).
+- **Um `Handler` por recurso** (tipicamente um por `Controller`, com exceção
+  de subcaminhos de Aggregate Root distinta — `HANDLER/RULES.md` seção 4),
+  não um `Handler` por `Command`/`Query` individual. O `Handler` implementa
+  `IHandler<TCommand, TResult>` (`SHARED/RULES.md` seção 3) uma vez por
+  `Command`/`Query` que aceita, com método de entrada explícito por
+  sobrecarga (ex: `Handle(CriarPedidoCommand command)`, `Handle(ObterPedidoPorIdQuery query)`
+  na mesma classe) — `HANDLER/RULES.md` seção 3 tem o detalhamento completo.
+- Nenhum `IMediator.Send(...)` genérico. A dependência entre Controller e Handler é explícita e rastreável por "ir para definição", sem indireção de convenção/reflection — o overload correto é resolvido pelo compilador C#, não por reflection em runtime.
+- Cross-cutting concerns (validação, logging, transação, exceção não tratada) que normalmente viveriam num pipeline de mediator são resolvidos por decoration explícita do `Handler` ou middleware do `Host`: exceção não tratada → `GlobalExceptionMiddleware` (`02-INFRASTRUCTURE/SECURITY/RULES.md` seção 6); transação → `IUnitOfWork` explícito no `Handler` (`HANDLER/RULES.md` seção 5); validação de forma → `[ApiController]`/data annotation na borda (`CONTROLLER/RULES.md` seção 6).
 
 ## 7.1 Estilo de código — LINQ obrigatório sobre loop imperativo, quando aplicável
 

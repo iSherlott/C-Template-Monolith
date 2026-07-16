@@ -110,7 +110,7 @@ public interface IEventBus
 }
 ```
 
-- `PublishAsync` **não publica no RabbitMQ diretamente** — ele serializa o evento e grava uma linha na tabela `outbox_messages` do schema do módulo chamador, usando o `IUnitOfWork` já aberto pelo Handler (mesma transação da escrita de domínio — ver `DATABASE/RULES.md` seção 5, e `HANDLER/RULES.md` seção 4 para o padrão de reaproveitar o mesmo `IUnitOfWork` entre `Repository` e `IEventBus`).
+- `PublishAsync` **não publica no RabbitMQ diretamente** — ele serializa o evento e grava uma linha na tabela `outbox_messages` do schema do módulo chamador, usando o `IUnitOfWork` já aberto pelo Handler (mesma transação da escrita de domínio — ver `DATABASE/RULES.md` seção 5, e `HANDLER/RULES.md` seção 5 para o padrão de reaproveitar o mesmo `IUnitOfWork` entre `Repository` e `IEventBus`).
 - Isso significa: publicar um evento é sempre parte do mesmo bloco transacional de uma operação de escrita. Não existe `PublishAsync` sem um `IUnitOfWork` em andamento — se o fluxo não grava nada no banco, não há "commit atômico" para garantir, e o caso de uso provavelmente não deveria usar Outbox (avaliar se cabe um publish direto, caso realmente não exista nenhuma escrita associada — exceção rara, documentar quando ocorrer).
 
 ## 6. Tabela `outbox_messages` — uma por schema de módulo

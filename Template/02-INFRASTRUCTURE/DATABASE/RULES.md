@@ -191,7 +191,7 @@ public class UnitOfWorkFactory : IUnitOfWorkFactory
 }
 ```
 
-Uso no `Handler` (ver `HANDLER/RULES.md` seção 3 para o padrão completo):
+Uso no `Handler` (ver `HANDLER/RULES.md` seção 5 para o padrão completo):
 
 ```csharp
 using var unitOfWork = _unitOfWorkFactory.Create();

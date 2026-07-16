@@ -27,11 +27,13 @@ nenhum `Controller` de outro lugar — jamais injeta ou referencia
 "o que outro módulo/HTTP compila contra" (seção 1 acima); `Repository` nunca
 se encaixa nisso, então continua dentro de `Modules/<NomeModulo>/Repositories/`,
 não aqui — mesmo com a interface fisicamente separada da implementação em
-`Repositories/Interface/` e `Repositories/Implementation/`
-(`REPOSITORIES/RULES.md` seção 2), essa divisão é só organização de arquivo
-por tipo (mesma lógica de `Infrastructure`, `DATABASE/RULES.md` seção 3.1),
-não uma mudança de fronteira arquitetural — `Repositories/` inteiro continua
-tão privado ao módulo quanto `Entities/`.
+`Repositories/Contracts/` (pasta **local**, sem relação com este documento
+ou com `Shared/Contracts` — seção 1.1 do próprio título já avisa: é o
+terceiro lugar chamado "Contracts" nesta arquitetura, cada um com escopo de
+visibilidade diferente) enquanto a implementação fica na raiz de
+`Repositories/` (`REPOSITORIES/RULES.md` seção 2), essa divisão é só
+organização de arquivo, não uma mudança de fronteira arquitetural —
+`Repositories/` inteiro continua tão privado ao módulo quanto `Entities/`.
 
 ## 2. Estrutura de pastas
 
@@ -76,7 +78,7 @@ public interface IVendasModule
 - Continuam dentro do módulo (`Modules/<NomeModulo>/Contracts/Dtos/`), porque só o `Controller` do próprio módulo os usa — nenhum outro módulo importa esse tipo em código.
 - Sempre `record` imutável (nunca classe com setters públicos). Ex: `public record PedidoDto(Guid Id, Guid ClienteId, decimal Total, string Status);`
 - Nunca contém um campo do tipo `Entity` de domínio.
-- Convenção de mapeamento: método `FromEntity(Entity entity)` na própria classe do `Dto`, chamado pelo `Handler` (`HANDLER/RULES.md` seção 7) — pode ser `internal` (só o `Handler` do próprio módulo chama), enquanto o `Dto` em si continua `public` (é serializado como resposta HTTP). O `Dto` nunca faz o caminho inverso (não tem `ToEntity()`).
+- Convenção de mapeamento: método `FromEntity(Entity entity)` na própria classe do `Dto`, chamado pelo `Handler` (`HANDLER/RULES.md` seção 8) — pode ser `internal` (só o `Handler` do próprio módulo chama), enquanto o `Dto` em si continua `public` (é serializado como resposta HTTP). O `Dto` nunca faz o caminho inverso (não tem `ToEntity()`).
 
 ## 5. `IntegrationEvents` — o que é publicado
 

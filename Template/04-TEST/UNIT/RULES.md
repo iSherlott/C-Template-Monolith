@@ -66,25 +66,45 @@ ou fala com Redis real.
 
 ## 4. Exemplo — testando um `Handler`
 
+Um `Handler` cobre vários `Command`/`Query` do mesmo recurso
+(`HANDLER/RULES.md` seção 3) — a classe de teste espelha isso: **um método
+de teste por cenário de cada `Handle`**, todos na mesma classe
+`<Recurso>HandlerTests`, não uma classe de teste por `Command` como antes
+da consolidação.
+
 ```csharp
-public class CriarPedidoHandlerTests
+public class PedidoHandlerTests
 {
+    private readonly IPedidoRepository _repository = Substitute.For<IPedidoRepository>();
+    private readonly IUnitOfWorkFactory _unitOfWorkFactory = Substitute.For<IUnitOfWorkFactory>();
+    private readonly IEventBus _eventBus = Substitute.For<IEventBus>();
+
+    private PedidoHandler CriarHandler() => new(_repository, _unitOfWorkFactory, _eventBus);
+
     [Fact]
-    public async Task Handle_DeveRetornarFailureValidation_QuandoPedidoSemItens()
+    public async Task Handle_CriarPedidoCommand_DeveRetornarFailureValidation_QuandoPedidoSemItens()
     {
         // Arrange
-        var repository = Substitute.For<IPedidoRepository>();
-        var unitOfWorkFactory = Substitute.For<IUnitOfWorkFactory>();
-        var eventBus = Substitute.For<IEventBus>();
-        var handler = new CriarPedidoHandler(repository, unitOfWorkFactory, eventBus);
         var command = new CriarPedidoCommand(Guid.NewGuid(), Array.Empty<ItemPedidoInput>());
 
         // Act
-        var result = await handler.Handle(command);
+        var result = await CriarHandler().Handle(command);
 
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorType.Validation, result.Error!.Type);
+    }
+
+    [Fact]
+    public async Task Handle_ObterPedidoPorIdQuery_DeveRetornarNotFound_QuandoPedidoNaoExiste()
+    {
+        var idInexistente = Guid.NewGuid();
+        _repository.ObterPorIdAsync(idInexistente).Returns((Pedido?)null);
+
+        var result = await CriarHandler().Handle(new ObterPedidoPorIdQuery(idInexistente));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorType.NotFound, result.Error!.Type);
     }
 }
 ```
@@ -94,7 +114,7 @@ public class CriarPedidoHandlerTests
 - **Nomenclatura de teste:** `<Metodo>_Deve<ResultadoEsperado>_Quando<Cenario>` — descreve comportamento, não implementação.
 - **Padrão AAA** (Arrange / Act / Assert) sempre explícito, inclusive com comentários curtos separando as três seções em testes menos óbvios.
 - **Um comportamento por teste** — se um teste precisa de múltiplos `Assert` para validar coisas conceitualmente diferentes, provavelmente são dois testes.
-- Testar cada `ErrorType` de falha esperada que o `Handler` pode retornar (`HANDLER/RULES.md` seção 6), além do caminho de sucesso.
+- Testar cada `ErrorType` de falha esperada que o `Handler` pode retornar (`HANDLER/RULES.md` seção 7), além do caminho de sucesso.
 - Invariante de `Entity` é testado direto na `Entity` (`Pedido.Criar(...)`, `Pedido.AdicionarItem(...)`), sem envolver `Handler` — mais rápido de escrever e mais preciso sobre o que está sendo validado.
 
 ## 5.1 Mockando/instanciando um tipo `internal` (`Repository`, `Service`, `Consumer`)
