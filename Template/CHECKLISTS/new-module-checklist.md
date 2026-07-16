@@ -42,7 +42,7 @@ consolida a ordem de execução. Usado principalmente pelo
 
 ## 5. Repositories
 
-- [ ] Interface `public` + implementação concreta `internal`, ambas privadas ao módulo em termos de quem referencia (`ARCHITECTURE-RULES.md` §5.1)
+- [ ] Interface em `Repositories/Interface/` (`public`) + implementação concreta em `Repositories/Implementation/` (`internal`), ambas privadas ao módulo em termos de quem referencia (`ARCHITECTURE-RULES.md` §5.1, `REPOSITORIES/RULES.md` §2)
 - [ ] Métodos de escrita recebem `IUnitOfWork` explícito (nunca `IDbConnection`/`IDbTransaction` crus)
 - [ ] Toda query qualifica `<schema-do-modulo>.<tabela>` — nunca cross-schema
 - [ ] `Repository` só da Aggregate Root, nunca de entidade filha

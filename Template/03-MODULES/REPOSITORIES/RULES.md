@@ -14,10 +14,24 @@ resultado de volta em `Entity`.
 ```
 Modules/<NomeModulo>/
 └── Repositories/
-    ├── IPedidoRepository.cs          # interface — public (ver visibilidade abaixo)
-    └── PedidoRepository.cs           # implementação concreta com Dapper — internal
+    ├── Interface/
+    │   └── IPedidoRepository.cs      # interface — public (ver visibilidade abaixo)
+    └── Implementation/
+        └── PedidoRepository.cs       # implementação concreta com Dapper — internal
 ```
 
+- Mesma subpasta por tipo de arquivo (`Interface/`, `Implementation/`) já
+  adotada em `Infrastructure` (`DATABASE/RULES.md` seção 3.1) — pelo mesmo
+  motivo: legibilidade para quem nunca viu a pasta. Quem procura o
+  contrato vai direto em `Interface/`; quem procura como o SQL é montado
+  vai em `Implementation/`. Isso **não é** o mesmo que mover para
+  `Contracts` (`CONTRACTS/RULES.md` seção 1.1) — `Interface/Implementation/`
+  aqui é organização física de arquivo dentro do próprio `Repositories/`,
+  nunca implica que `Repository` cruza a fronteira do módulo.
+- Namespace continua `Modules.<NomeModulo>.Repositories` (ou
+  `<NomeModulo>.Repositories`, seguindo a convenção sem prefixo composto)
+  para os arquivos de ambas as subpastas — a divisão é só de arquivo, não
+  de namespace, mesmo raciocínio de `DATABASE/RULES.md` seção 3.1.
 - Interface e implementação **ambas privadas ao módulo** no sentido de que nenhum outro módulo as referencia — mas com visibilidades C# diferentes: a **interface é `public`** (aparece no construtor `public` do `Handler` — `ARCHITECTURE-RULES.md` seção 5.1) e a **implementação concreta é `internal`** (só é nomeada dentro do próprio `Install()`, nunca em assinatura pública). Isso não abre a fronteira — nenhum outro módulo tem `ProjectReference` para este módulo de qualquer forma (`CONTRACTS/RULES.md` seção 2).
 - Um `Repository` por **Aggregate Root** (`ENTITIES/RULES.md` seção 4) — nunca um `Repository` para uma entidade filha (ex: não existe `IItemDoPedidoRepository`; itens são carregados/salvos como parte do `Pedido`).
 

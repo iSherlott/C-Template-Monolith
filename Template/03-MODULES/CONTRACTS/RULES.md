@@ -25,11 +25,13 @@ superfície pública do módulo. Ninguém fora do módulo — nenhum outro módu
 nenhum `Controller` de outro lugar — jamais injeta ou referencia
 `IPedidoRepository`. "Contracts" nesta arquitetura significa especificamente
 "o que outro módulo/HTTP compila contra" (seção 1 acima); `Repository` nunca
-se encaixa nisso, então continua junto da sua implementação em
-`Modules/<NomeModulo>/Repositories/`, não aqui. Manter interface e
-implementação lado a lado também é mais legível para quem abre a pasta pela
-primeira vez — vê o contrato e a única implementação dele juntos, sem
-precisar pular entre duas pastas para entender uma coisa só.
+se encaixa nisso, então continua dentro de `Modules/<NomeModulo>/Repositories/`,
+não aqui — mesmo com a interface fisicamente separada da implementação em
+`Repositories/Interface/` e `Repositories/Implementation/`
+(`REPOSITORIES/RULES.md` seção 2), essa divisão é só organização de arquivo
+por tipo (mesma lógica de `Infrastructure`, `DATABASE/RULES.md` seção 3.1),
+não uma mudança de fronteira arquitetural — `Repositories/` inteiro continua
+tão privado ao módulo quanto `Entities/`.
 
 ## 2. Estrutura de pastas
 
