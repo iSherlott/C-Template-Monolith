@@ -15,13 +15,26 @@ pastas para dentro de si.
 Ordem de leitura obrigatória antes de qualquer trabalho:
 
 1. **[`00-PRINCIPLES/ARCHITECTURE-RULES.md`](00-PRINCIPLES/ARCHITECTURE-RULES.md)** — sempre primeiro. Define as regras globais que todas as outras camadas herdam.
-2. O `RULES.md` da camada específica que você vai tocar (`01-HOST`, `02-INFRASTRUCTURE/...`, `03-MODULES/...`, `04-TEST/...`).
-3. O arquivo do papel correspondente em `AGENTS/`, se você estiver atuando como um papel especializado (ex: construindo só a camada de Database, adote `AGENTS/database-agent.md`).
-4. O checklist relevante em `CHECKLISTS/`, se a tarefa for criar algo novo do zero (ex: um módulo novo).
+2. **[`00-PRINCIPLES/NODE-MAP.md`](00-PRINCIPLES/NODE-MAP.md)** — catálogo rápido de todo nó (arquivo/pasta) desta arquitetura, grafo de dependência, e métricas objetivas para conferir se um projeto real bate com o rulebook. Ponto de entrada recomendado para qualquer IA antes de tocar em um projeto real — mais rápido que ler os 20 `RULES.md` individuais.
+3. O `RULES.md` da camada específica que você vai tocar (`01-HOST`, `02-INFRASTRUCTURE/...`, `03-MODULES/...`, `04-TEST/...`).
+4. O arquivo do papel correspondente em `AGENTS/`, se você estiver atuando como um papel especializado (ex: construindo só a camada de Database, adote `AGENTS/database-agent.md`).
+5. O checklist relevante em `CHECKLISTS/`, se a tarefa for criar algo novo do zero (ex: um módulo novo).
 
 Nenhuma regra de camada específica pode contradizer `ARCHITECTURE-RULES.md`. Se
 parecer necessário, a mudança é na regra global primeiro, com decisão
 explícita — não uma exceção silenciosa numa pasta.
+
+## Cenários de uso — qual playbook seguir
+
+| Situação do projeto real | Playbook |
+|---|---|
+| Projeto novo, do zero | `AGENTS/ORCHESTRATOR.md` — "Sequência: projeto novo, do zero" |
+| Feature nova em módulo já conforme | `AGENTS/ORCHESTRATOR.md` — "Sequência: feature nova em módulo existente" |
+| Projeto já tem parte migrada/estruturada nesta arquitetura, mas diverge do mapa | `AGENTS/MIGRATION-AGENT.md` — "Cenário A" |
+| Migrar projeto de outra stack (ex: Java) para esta arquitetura | `AGENTS/MIGRATION-AGENT.md` — "Cenário B" |
+
+`00-PRINCIPLES/NODE-MAP.md` seção 4 detalha esta mesma tabela com contexto
+adicional.
 
 ## Mapa da pasta
 
@@ -29,7 +42,8 @@ explícita — não uma exceção silenciosa numa pasta.
 Template/
 ├── README.md                        # este arquivo — índice mestre
 ├── 00-PRINCIPLES/
-│   └── ARCHITECTURE-RULES.md        # ✅ regras globais (dependência, isolamento, comunicação)
+│   ├── ARCHITECTURE-RULES.md        # ✅ regras globais (dependência, isolamento, comunicação)
+│   └── NODE-MAP.md                  # ✅ catálogo de nós, grafo de dependência, métricas de sanidade
 ├── 01-HOST/
 │   └── RULES.md                     # ✅ criado
 ├── 02-INFRASTRUCTURE/
@@ -60,7 +74,8 @@ Template/
 │   ├── messaging-agent.md
 │   ├── cache-agent.md
 │   ├── module-agent.md
-│   └── test-agent.md
+│   ├── test-agent.md
+│   └── MIGRATION-AGENT.md           # ✅ criado — migração parcial (Cenário A) e cross-stack (Cenário B, ex: Java)
 └── CHECKLISTS/                      # ✅ criado
     └── new-module-checklist.md
 ```
@@ -101,6 +116,7 @@ explicitamente (ver `ARCHITECTURE-RULES.md` para o detalhamento de cada uma):
 | Exceptions | **`AppException`** (hierarquia com `StatusCode` próprio) + `GlobalExceptionMiddleware`, separado de `DomainException` (sempre bug, sempre `500`) e de `Result.Failure` (falha de negócio esperada, continua sendo o caminho padrão) (`02-INFRASTRUCTURE/SECURITY/RULES.md` seção 6) (2026-07-17) |
 | Mensagens de usuário (erro/notificação) | **`.resx` + classe acessadora escrita à mão** por módulo, na pasta `Modules/<Nome>/Dictionary/` — nomeada "Dictionary", não "Messages", para não confundir com `Infrastructure/Messaging` (RabbitMQ); `ResourceManager` resolve fallback de `culture` nativamente, mas `dotnet build` **não gera** `Designer.cs` automaticamente (isso é custom tool do Visual Studio); a classe acessadora `internal` é escrita à mão, uma vez (`03-MODULES/DICTIONARY/RULES.md` seção 2) (2026-07-17, corrigido em 2026-07-19, renomeado de Messages→Dictionary no mesmo dia) |
 | Estrutura de pasta de `Test/` | **Flat, igual Host/Infrastructure**: `Test/<Nome>/Unit/Unit.csproj` (nunca `Test/<Nome>/<Nome>.UnitTests/<Nome>.UnitTests.csproj`) — só o `AssemblyName` dentro do `.csproj` mantém o nome qualificado (`<Nome>.UnitTests`), exigido pelo `InternalsVisibleTo` (`04-TEST/UNIT/RULES.md` seção 2.1) (2026-07-18) |
+| Mapa de nós para consumo por IA | **`00-PRINCIPLES/NODE-MAP.md`** — catálogo único (grafo de dependência + tabela "o que cada nó pode/não pode conter" + métricas objetivas de sanidade) para qualquer agente decidir rapidamente onde um arquivo pertence, sem ler os 20 `RULES.md` um por um; e **`AGENTS/MIGRATION-AGENT.md`** — papel especializado para os dois cenários de projeto pré-existente: Cenário A (projeto já parcialmente nesta arquitetura, mas divergente — reorganizar preservando comportamento) e Cenário B (migração cross-stack, ex: Java Spring → esta arquitetura, com tabela de mapeamento de conceito e lista de anti-padrões da origem que não podem ser portados) (2026-07-19) |
 | Documentação de API (Swagger) | **`Swashbuckle.AspNetCore`** (não o `Microsoft.AspNetCore.OpenApi` minimalista) — único pacote com suporte nativo ao botão "Authorize" (JWT Bearer) na UI; versão fixada em `9.0.6` (não a `10.x`), porque o Swashbuckle 10.x traz `Microsoft.OpenApi` 2.x, que removeu o namespace `Microsoft.OpenApi.Models` (`OpenApiInfo`/`OpenApiSecurityScheme`/`OpenApiReference` deixam de existir lá). Exposto só em `Development` (`UseSwaggerDocumentation()` dentro do `if (app.Environment.IsDevelopment())`), com `RoutePrefix = "swagger"`; `launchSettings.json` usa `launchBrowser: true` + `launchUrl: "swagger"` para abrir direto na página ao rodar local (`01-HOST/RULES.md` seção 3.1, pipeline atualizado na seção 5) (2026-07-19) |
 
 ## Como evoluir este rulebook

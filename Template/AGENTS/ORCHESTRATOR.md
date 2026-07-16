@@ -11,7 +11,7 @@ o trabalho pronto.
 Os outros papéis são: [`host-agent`](host-agent.md),
 [`database-agent`](database-agent.md), [`messaging-agent`](messaging-agent.md),
 [`cache-agent`](cache-agent.md), [`module-agent`](module-agent.md),
-[`test-agent`](test-agent.md).
+[`test-agent`](test-agent.md), [`migration-agent`](MIGRATION-AGENT.md).
 
 ## Regra de ouro: o rulebook manda, não a sua preferência
 
@@ -69,6 +69,53 @@ sempre atualizado, nunca é contornado silenciosamente.
 
 Não é preciso reconstruir Infrastructure nem revisitar outros módulos para
 uma feature isolada dentro de um módulo existente.
+
+## Sequência — projeto já parcialmente migrado nesta arquitetura
+
+```
+1. Ler 00-PRINCIPLES/NODE-MAP.md inteiro (catálogo de nós + métricas de
+   sanidade da seção 3) — é o ponto de partida rápido para este cenário.
+
+2. migration-agent executa o "Cenário A" (MIGRATION-AGENT.md): inventário,
+   classificação por nó, relatório de gap por módulo, reorganização
+   incremental, um módulo por vez.
+
+3. test-agent valida cada módulo reorganizado (build + Unit/Contract/
+   Integration + Test/Architecture) antes do próximo módulo começar.
+
+4. host-agent só entra se a reorganização revelar módulo não descoberto via
+   assembly scanning (ex: ModuleInstaller sem construtor parameterless).
+
+5. Achados fora do mapa (arquivo "extra" que não corresponde a nó nenhum)
+   nunca são apagados pelo migration-agent sozinho — escalam a você, que
+   pergunta ao usuário.
+```
+
+## Sequência — migração cross-stack (ex: Java → esta arquitetura)
+
+```
+1. Ler 00-PRINCIPLES/NODE-MAP.md + 00-PRINCIPLES/ARCHITECTURE-RULES.md
+   inteiros.
+
+2. migration-agent executa o "Cenário B" (MIGRATION-AGENT.md): decide os
+   módulos de destino a partir do domínio de origem (não dos pacotes da
+   stack original), monta o esqueleto de pastas completo por módulo, e
+   porta arquivo por módulo na ordem Entities → Contracts → Repository →
+   Commands → Handler → Controller → Consumers/Services → Dictionary.
+
+3. Qualquer anti-padrão trazido da stack de origem (repositório genérico,
+   transação cruzando bounded context, serviço chamando outro bounded
+   context direto, exception usada como controle de fluxo esperado) é
+   corrigido na tradução, nunca portado como está — ver tabela em
+   MIGRATION-AGENT.md.
+
+4. test-agent valida build + Test/Architecture + Unit a cada módulo
+   portado — nunca portar todos os módulos e só então tentar compilar.
+
+5. Ambiguidade de mapeamento de conceito (classe de origem que mistura
+   dois bounded contexts, padrão sem equivalente direto) nunca é resolvida
+   pelo migration-agent sozinho — escala a você, que pergunta ao usuário.
+```
 
 ## Validando handoff entre papéis
 
