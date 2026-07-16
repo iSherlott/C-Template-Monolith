@@ -16,24 +16,32 @@ Se um `Dto` um dia precisar aparecer no retorno de um método de `I<NomeModulo>`
 ele migra para `Shared/Contracts` também — a regra é "mora onde é compilado
 contra", não "mora onde nasceu".
 
-### 1.1 Por que `IPedidoRepository` (interface) **não** entra aqui
+### 1.1 `IPedidoRepository` mora em `Contracts/Repositories/` — mas não é superfície pública
 
-`Repository` é `public` (`REPOSITORIES/RULES.md` seção 2) — mas isso é uma
-consequência do C# (a interface aparece no construtor `public` de `Handler`,
-`ARCHITECTURE-RULES.md` seção 5.1), não uma declaração de que ele é parte da
-superfície pública do módulo. Ninguém fora do módulo — nenhum outro módulo,
-nenhum `Controller` de outro lugar — jamais injeta ou referencia
-`IPedidoRepository`. "Contracts" nesta arquitetura significa especificamente
-"o que outro módulo/HTTP compila contra" (seção 1 acima); `Repository` nunca
-se encaixa nisso, então continua dentro de `Modules/<NomeModulo>/Repositories/`,
-não aqui — mesmo com a interface fisicamente separada da implementação em
-`Repositories/Contracts/` (pasta **local**, sem relação com este documento
-ou com `Shared/Contracts` — seção 1.1 do próprio título já avisa: é o
-terceiro lugar chamado "Contracts" nesta arquitetura, cada um com escopo de
-visibilidade diferente) enquanto a implementação fica na raiz de
-`Repositories/` (`REPOSITORIES/RULES.md` seção 2), essa divisão é só
-organização de arquivo, não uma mudança de fronteira arquitetural —
-`Repositories/` inteiro continua tão privado ao módulo quanto `Entities/`.
+**Decisão final:** a interface de `Repository` fica dentro da pasta
+`Contracts/` que o próprio módulo já tem (a mesma que abriga `Dtos/`), numa
+subpasta dedicada: `Modules/<NomeModulo>/Contracts/Repositories/IPedidoRepository.cs`.
+A implementação concreta mora numa pasta irmã, no singular:
+`Modules/<NomeModulo>/Repository/PedidoRepository.cs` (`REPOSITORIES/RULES.md`
+seção 2 tem o detalhamento completo).
+
+Isso **não** significa que `Repository` passou a cruzar a fronteira do
+módulo. `Repository` é `public` (`REPOSITORIES/RULES.md` seção 2) só por
+consequência do C# (a interface aparece no construtor `public` de
+`Handler`, `ARCHITECTURE-RULES.md` seção 5.1) — ninguém fora do módulo
+jamais injeta ou referencia `IPedidoRepository`. `Contracts/` dentro de um
+módulo passa a ter duas subpastas com propósitos diferentes:
+
+| Subpasta | Cruza a fronteira do módulo? | Motivo de estar em `Contracts/` |
+|---|---|---|
+| `Contracts/Dtos/` | Sim, via HTTP (fora do processo) | Seção 1 acima |
+| `Contracts/Repositories/` | **Não** — nenhum outro módulo o referencia | Só organização: centraliza toda interface/contrato do módulo (o que é "tipo que algo compila contra", mesmo que esse "algo" seja só o próprio módulo) num único lugar, em vez de espalhar uma pasta `Contracts/` própria dentro de `Repository/` |
+
+Code review não deve inferir "está em `Contracts/`, logo é público para
+outros módulos" — a pergunta certa continua sendo "existe `ProjectReference`
+de outro módulo para este?" (nunca existe, `CONTRACTS/RULES.md` seção 2), e
+"esse tipo específico é injetado fora do módulo?" (só `Dtos/` é, e mesmo
+assim só via serialização HTTP, nunca em código).
 
 ## 2. Estrutura de pastas
 
@@ -45,9 +53,13 @@ Modules/
 │       └── IntegrationEvents/
 │           └── <EventoNoPassado>Event.cs # ex: PedidoCriadoEvent.cs
 └── <NomeModulo>/
-    └── Contracts/
-        └── Dtos/
-            └── <Recurso>Dto.cs           # ex: PedidoDto.cs — só usado pelo próprio Controller
+    ├── Contracts/
+    │   ├── Dtos/
+    │   │   └── <Recurso>Dto.cs          # ex: PedidoDto.cs — só usado pelo próprio Controller
+    │   └── Repositories/
+    │       └── I<Recurso>Repository.cs  # interface — ver seção 1.1 e REPOSITORIES/RULES.md §2
+    └── Repository/
+        └── <Recurso>Repository.cs       # implementação concreta — ver REPOSITORIES/RULES.md §2
 ```
 
 **Consequência prática:** nenhum módulo de negócio tem `ProjectReference`

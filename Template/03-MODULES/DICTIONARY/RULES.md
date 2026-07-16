@@ -1,4 +1,4 @@
-# RULES — Modules / Messages
+# RULES — Modules / Dictionary
 
 > Herda `00-PRINCIPLES/ARCHITECTURE-RULES.md` e `03-MODULES/RULES.md`. Este documento especializa, nunca substitui.
 
@@ -12,9 +12,17 @@ sem grep pelo código inteiro; (2) preparar o terreno para idioma (`culture`)
 sem precisar reescrever `Handler`/`Entity` no dia em que isso for
 necessário.
 
+**Por que a pasta se chama `Dictionary/` e não `Messages/`:** evita
+confusão com `Infrastructure/Messaging` (RabbitMQ, `IntegrationEvent`,
+Outbox — `02-INFRASTRUCTURE/MESSAGING/RULES.md`), que é sobre um assunto
+completamente diferente (comunicação assíncrona entre módulos). "Dictionary"
+aqui é só o nome da pasta/conceito ("dicionário de mensagens de usuário") —
+seção 2 explica por que a implementação real **não** é um
+`Dictionary<string, string>` do C#, apesar do nome.
+
 ## 2. `.resx` + acessador escrito à mão — não um `Dictionary<string, string>` solto, não um Designer.cs mágico
 
-**Decisão:** apesar do nome "dicionário de mensagens" sugerir um
+**Decisão:** apesar do nome da pasta ("dicionário de mensagens") sugerir um
 `Dictionary<string, string>` manual, a implementação usa **arquivos de
 recurso `.resx`** (mecanismo nativo do .NET) por trás de uma classe
 acessadora **escrita à mão** (`internal static class`). Motivo: o objetivo
@@ -23,35 +31,38 @@ resolve o lado difícil disso de graça, sem precisar reimplementar fallback
 de idioma:
 
 - `ResourceManager.GetString(chave, CultureInfo)` escolhe automaticamente o
-  arquivo certo pela `CultureInfo` corrente (`Messages.resx` → neutro/
-  fallback, `Messages.en-US.resx` → inglês, ...), sem nenhum `if`/`switch`
-  de idioma escrito por nós.
+  arquivo certo pela `CultureInfo` corrente (`<Nome>Dictionary.resx` →
+  neutro/fallback, `<Nome>Dictionary.en-US.resx` → inglês, ...), sem nenhum
+  `if`/`switch` de idioma escrito por nós.
 - **Importante — verificado empiricamente:** rodando só `dotnet build`
   (sem Visual Studio), o `.resx` **não** gera automaticamente uma classe
-  `Messages.Designer.cs` fortemente tipada — isso só acontece através do
+  `Designer.cs` fortemente tipada — isso só acontece através do
   custom tool `ResXFileCodeGenerator` que o Visual Studio conecta na IDE.
   Um projeto compilado só via CLI/SDK (`dotnet build`/`dotnet test`) embute
   o `.resx` como recurso binário (`.resources`), mas não gera nenhum C#.
   Por isso esta arquitetura **não promete** um `Designer.cs` automático —
-  a classe acessadora fortemente tipada (seção 3) é escrita à mão, uma vez
+  a classe acessadora fortemente tipada (seção 5) é escrita à mão, uma vez
   por módulo, e chama `ResourceManager` internamente.
 - Ainda assim, isso é mais barato que um `Dictionary<string, string>`
-  manual: a classe acessadora tem uma propriedade de uma linha por chave
-  (`public static string X => Obter(nameof(X));`), e todo o trabalho difícil
-  (fallback de cultura, carregamento de satellite assembly, cache) continua
-  delegado ao `ResourceManager`, não reimplementado.
+  manual de verdade: a classe acessadora tem uma propriedade de uma linha
+  por chave (`public static string X => Obter(nameof(X));`), e todo o
+  trabalho difícil (fallback de cultura, carregamento de satellite
+  assembly, cache) continua delegado ao `ResourceManager`, não
+  reimplementado. Não confundir o **nome da pasta** (`Dictionary/`, seção 1)
+  com o **tipo de dado usado por dentro** — nenhum `Dictionary<string,string>`
+  real aparece na implementação.
 
 ## 3. Estrutura de pastas
 
 ```
 Modules/<NomeModulo>/
-└── Messages/
-    ├── <NomeModulo>Messages.resx      # idioma neutro/fallback — dados (chave → texto)
-    ├── <NomeModulo>Messages.cs        # acessador fortemente tipado, escrito à mão (ver seção 5)
-    └── <NomeModulo>Messages.en-US.resx # adicionado só quando o segundo idioma for genuinamente necessário
+└── Dictionary/
+    ├── <NomeModulo>Dictionary.resx      # idioma neutro/fallback — dados (chave → texto)
+    ├── <NomeModulo>Dictionary.cs        # acessador fortemente tipado, escrito à mão (ver seção 5)
+    └── <NomeModulo>Dictionary.en-US.resx # adicionado só quando o segundo idioma for genuinamente necessário
 ```
 
-- Um `.resx` (+ acessador) por módulo — nunca compartilhado entre módulos (`Messages` de um módulo é tão privado quanto `Entities`/`Handler` dele — `ARCHITECTURE-RULES.md` seção 3).
+- Um `.resx` (+ acessador) por módulo — nunca compartilhado entre módulos (`Dictionary` de um módulo é tão privado quanto `Entities`/`Handler` dele — `ARCHITECTURE-RULES.md` seção 3).
 - O `.resx` neutro (sem sufixo de cultura) é criado desde o primeiro dia, mesmo em projeto monolíngue — é ele que centraliza a mensagem hoje. Os `.resx` com sufixo de cultura (`.en-US.resx`, `.es-ES.resx`, ...) só são criados quando o segundo idioma é uma necessidade real do projeto, nunca antecipados sem uso concreto (mesmo princípio de não construir abstração antes da hora — `ARCHITECTURE-RULES.md`).
 - A classe acessadora é `internal` — só `Handler`/`Entity` do próprio módulo a chamam; nenhum outro módulo a referencia (nem conseguiria, é `internal`).
 
@@ -81,16 +92,16 @@ literal nem pelo local de uso:
 ## 5. A classe acessadora — escrita à mão, uma vez por módulo
 
 ```csharp
-// Modules/Pessoas/Messages/PessoasMessages.cs
+// Modules/Pessoas/Dictionary/PessoasDictionary.cs
 using System.Globalization;
 using System.Resources;
 
-namespace Pessoas.Messages;
+namespace Pessoas.Dictionary;
 
-internal static class PessoasMessages
+internal static class PessoasDictionary
 {
     private static readonly ResourceManager ResourceManager =
-        new("Pessoas.Messages.PessoasMessages", typeof(PessoasMessages).Assembly);
+        new("Pessoas.Dictionary.PessoasDictionary", typeof(PessoasDictionary).Assembly);
 
     public static string NomeObrigatorio => Obter(nameof(NomeObrigatorio));
     public static string PessoaNaoEncontrada => Obter(nameof(PessoaNaoEncontrada));
@@ -101,15 +112,15 @@ internal static class PessoasMessages
 ```
 
 ```csharp
-// Caso com placeholder — Modules/Catalogo/Messages/CatalogoMessages.cs
+// Caso com placeholder — Modules/Catalogo/Dictionary/CatalogoDictionary.cs
 public static string GeneroInvalido(string generoId) =>
     string.Format(CultureInfo.CurrentUICulture, Obter(nameof(GeneroInvalido)), generoId);
 ```
 
 - O primeiro argumento de `new ResourceManager(...)` é o **nome lógico do
   recurso embutido**: `<RootNamespace>.<CaminhoDaPasta>.<NomeDoArquivoResx sem extensão>`,
-  sempre com pontos (nunca barra) — para `Modules/Pessoas/Messages/PessoasMessages.resx`
-  com `RootNamespace` `Pessoas`, o nome é `"Pessoas.Messages.PessoasMessages"`. Errar esse
+  sempre com pontos (nunca barra) — para `Modules/Pessoas/Dictionary/PessoasDictionary.resx`
+  com `RootNamespace` `Pessoas`, o nome é `"Pessoas.Dictionary.PessoasDictionary"`. Errar esse
   nome não é erro de compilação — é `MissingManifestResourceException` em
   runtime, na primeira chamada. Conferir com `dotnet build` + inspecionar o
   `.resources` gerado em `obj/` quando a mensagem não aparece.
@@ -117,17 +128,25 @@ public static string GeneroInvalido(string generoId) =>
   string da chave duplicada manualmente (`Obter("NomeObrigatorio")`), para
   que renomear a propriedade force renomear a chave (ou vice-versa) via
   "Find usages"/rename refactor, não silenciosamente diverja.
+- `namespace Pessoas.Dictionary;` não colide com `System.Collections.Generic.Dictionary<TKey,TValue>`
+  — são símbolos de espécies diferentes (namespace vs. tipo genérico) e o
+  código sempre referencia a classe pelo nome completo (`PessoasDictionary.NomeObrigatorio`),
+  nunca pelo nome bare `Dictionary`. Se algum dia isso causar ambiguidade
+  num arquivo específico (`using Pessoas.Dictionary;` **e**
+  `using System.Collections.Generic;` no mesmo arquivo, referenciando
+  `Dictionary<,>` sem qualificar), resolve-se com `using System.Collections.Generic.Dictionary`
+  no ponto de uso — não é motivo para reconsiderar o nome da pasta.
 
 ## 6. Onde é consumido
 
 ```csharp
 // Handler
 if (command.Itens.Count == 0)
-    return Result<PedidoDto>.Failure(Error.Validation(Messages.PedidoSemItens));
+    return Result<PedidoDto>.Failure(Error.Validation(PedidoDictionary.PedidoSemItens));
 
 // Entity
 if (Status != StatusPedido.Aberto)
-    throw new DomainException(Messages.PedidoJaCancelado);
+    throw new DomainException(PedidoDictionary.PedidoJaCancelado);
 ```
 
 - `Handler` (`HANDLER/RULES.md`) e `Entity` (`ENTITIES/RULES.md`) são os
@@ -156,14 +175,14 @@ um segundo idioma real para justificá-lo.
 | Anti-padrão | Por quê é proibido |
 |---|---|
 | String literal de mensagem de usuário dentro de `Handler`/`Entity` (`Error.Validation("texto direto")`) | Não centralizado, impossível de traduzir depois sem caçar cada ocorrência |
-| `Dictionary<string, string>` escrito à mão para mensagens | Reimplementa o que `.resx`/`ResourceManager` já resolve nativamente (seção 2) |
+| `Dictionary<string, string>` de verdade escrito à mão para mensagens | Reimplementa o que `.resx`/`ResourceManager` já resolve nativamente (seção 2) — o nome da pasta não deve virar a implementação literal |
 | Chave de mensagem não-semântica (`Msg1`, texto inteiro como chave) | Quebra ao reformular o texto; não sobrevive a manutenção |
-| `.resx` compartilhado entre módulos | Viola isolamento de módulo — `Messages` é tão privado quanto `Entities` |
+| `.resx` compartilhado entre módulos | Viola isolamento de módulo — `Dictionary` é tão privado quanto `Entities` |
 | Concatenação manual de valor dinâmico na mensagem (`"Gênero '" + generoId + "' não existe."`) | Usa placeholder `{0}` + método na classe acessadora (seção 5) — concatenação quebra ordem de palavra em outro idioma |
 | `.resx` de cultura extra criado sem necessidade real de suportar aquele idioma | Abstração antecipada sem uso concreto |
 | Classe acessadora `public` | Só `Handler`/`Entity` do próprio módulo chamam — `internal` é suficiente e reforça que não é superfície pública do módulo |
 
 ## 9. Enforcement
 
-- Code review bloqueia string literal de mensagem de usuário passada diretamente para `Error.Validation`/`Error.NotFound`/`Error.Conflict`/`DomainException` — sempre via `<NomeModulo>Messages.<Chave>`.
-- Code review confere que toda chave nova em `<NomeModulo>Messages.resx` é semântica (seção 4), não posicional/numérica, e que a classe acessadora (seção 5) tem uma propriedade/método correspondente usando `nameof`.
+- Code review bloqueia string literal de mensagem de usuário passada diretamente para `Error.Validation`/`Error.NotFound`/`Error.Conflict`/`DomainException` — sempre via `<NomeModulo>Dictionary.<Chave>`.
+- Code review confere que toda chave nova em `<NomeModulo>Dictionary.resx` é semântica (seção 4), não posicional/numérica, e que a classe acessadora (seção 5) tem uma propriedade/método correspondente usando `nameof`.

@@ -13,31 +13,40 @@ resultado de volta em `Entity`.
 
 ```
 Modules/<NomeModulo>/
-└── Repositories/
-    ├── Contracts/
-    │   └── IPedidoRepository.cs      # interface — public (ver visibilidade abaixo)
-    └── PedidoRepository.cs           # implementação concreta com Dapper — internal, na raiz de Repositories/
+├── Contracts/
+│   ├── Dtos/
+│   │   └── PedidoDto.cs               # ver CONTRACTS/RULES.md seção 4
+│   └── Repositories/
+│       └── IPedidoRepository.cs      # interface — public (ver visibilidade abaixo)
+└── Repository/
+    └── PedidoRepository.cs           # implementação concreta com Dapper — internal
 ```
 
-- **`Contracts/` aqui é uma pasta local**, só para os contratos de
-  `Repository` deste módulo — não confundir com `Modules/Shared/Contracts/`
-  (cross-módulo) nem com `Modules/<NomeModulo>/Contracts/Dtos/` (superfície
-  HTTP do próprio módulo). São três usos do mesmo nome "Contracts" em
-  profundidades diferentes da árvore, cada um com o mesmo sentido genérico
-  ("aqui moram interfaces/tipos que outro código compila contra"), mas com
-  escopos de visibilidade completamente diferentes — `Repositories/Contracts/`
-  nunca é visto por nada fora do próprio módulo (`CONTRACTS/RULES.md`
-  seção 1.1 detalha por que `Repository` não vai para os outros dois).
-- A implementação concreta fica na **raiz** de `Repositories/`, não numa
-  subpasta própria — só a interface ganha subpasta dedicada. Isso reflete
-  que a implementação é o "conteúdo principal" da pasta (é o que a maioria
-  dos arquivos ali dentro vai ser, à medida que o módulo cresce), enquanto
-  o contrato é a exceção que merece destaque físico.
+- **Decisão final:** a interface do `Repository` vive dentro da pasta
+  `Contracts/` que **o próprio módulo já tem** (a mesma que abriga `Dtos/`
+  — `CONTRACTS/RULES.md` seção 1), numa subpasta `Repositories/` dedicada
+  — não numa pasta `Contracts/` própria dentro de `Repositories/`. A
+  implementação concreta fica num pasta separada, no singular:
+  `Repository/` (não `Repositories/`), irmã de `Contracts/`, `Handler/`,
+  `Entities/`, `Commands/`, `Services/` na raiz do módulo.
+- **Por que `Contracts/Repositories/` e não `Repository/Contracts/`:**
+  centraliza toda interface/contrato do módulo (`Dtos/`, `Repositories/`)
+  num único lugar (`Contracts/`), em vez de espalhar uma subpasta
+  `Contracts/` por dentro de cada camada técnica que tem uma. Quem quer
+  ver "tudo que este módulo expõe como tipo" olha uma pasta só.
+- **`Contracts/Repositories/` aqui é local ao módulo** — não confundir com
+  `Modules/Shared/Contracts/` (cross-módulo, `I<NomeModulo>`/
+  `IntegrationEvents` — `CONTRACTS/RULES.md` seção 1). O `Repository` nunca
+  vai para `Shared/Contracts/`: ninguém fora do módulo o injeta ou
+  referencia; sua visibilidade `public` é só consequência da cascata de
+  acessibilidade do C# (`ARCHITECTURE-RULES.md` seção 5.1), não uma
+  declaração de que ele cruza a fronteira do módulo (`CONTRACTS/RULES.md`
+  seção 1.1 detalha o porquê).
 - Namespace continua `Modules.<NomeModulo>.Repositories` (ou
   `<NomeModulo>.Repositories`, seguindo a convenção sem prefixo composto)
-  tanto para a interface em `Contracts/` quanto para a implementação na
-  raiz — a divisão é só de arquivo, não de namespace, mesmo raciocínio de
-  `DATABASE/RULES.md` seção 3.1.
+  tanto para a interface em `Contracts/Repositories/` quanto para a
+  implementação em `Repository/` — a divisão é só de arquivo/pasta física,
+  não de namespace, mesmo raciocínio de `DATABASE/RULES.md` seção 3.1.
 - Interface e implementação **ambas privadas ao módulo** no sentido de que nenhum outro módulo as referencia — mas com visibilidades C# diferentes: a **interface é `public`** (aparece no construtor `public` do `Handler` — `ARCHITECTURE-RULES.md` seção 5.1) e a **implementação concreta é `internal`** (só é nomeada dentro do próprio `Install()`, nunca em assinatura pública). Isso não abre a fronteira — nenhum outro módulo tem `ProjectReference` para este módulo de qualquer forma (`CONTRACTS/RULES.md` seção 2).
 - Um `Repository` por **Aggregate Root** (`ENTITIES/RULES.md` seção 4) — nunca um `Repository` para uma entidade filha (ex: não existe `IItemDoPedidoRepository`; itens são carregados/salvos como parte do `Pedido`).
 

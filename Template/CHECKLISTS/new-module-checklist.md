@@ -23,7 +23,7 @@ consolida a ordem de execução. Usado principalmente pelo
 ## 2. Estrutura de pastas — `module-agent`
 
 - [ ] `Modules/<NomeModulo>/<NomeModulo>.csproj` criado, referenciando só `Infrastructure` e `Shared` (nunca outro módulo)
-- [ ] `Modules/<NomeModulo>/` criado com as 8 subpastas: `Controller`, `Handler`, `Contracts` (só `Dtos/` — `I<NomeModulo>`/`IntegrationEvents` vão em `Shared/Contracts`, ver §7 abaixo), `Entities`, `Commands`, `Repositories`, `Consumers`, `Services` ([`03-MODULES/RULES.md`](../03-MODULES/RULES.md) §2)
+- [ ] `Modules/<NomeModulo>/` criado com as subpastas: `Controller`, `Handler`, `Contracts` (`Dtos/` + `Repositories/` — `I<NomeModulo>`/`IntegrationEvents` vão em `Shared/Contracts`, ver §7 abaixo), `Entities`, `Commands`, `Repository` (implementação concreta, singular), `Consumers`, `Services` ([`03-MODULES/RULES.md`](../03-MODULES/RULES.md) §2)
 - [ ] `GlobalUsings.cs` com os `using` comuns do módulo (`Infrastructure.Database`, `Shared.Kernel`, etc.)
 - [ ] `AssemblyInfo.cs` com `[assembly: InternalsVisibleTo(...)]` para `<NomeModulo>.UnitTests`, `<NomeModulo>.IntegrationTests` e `DynamicProxyGenAssembly2` (necessário para testar/mockar os tipos `internal` do módulo — ver §15)
 
@@ -42,7 +42,7 @@ consolida a ordem de execução. Usado principalmente pelo
 
 ## 5. Repositories
 
-- [ ] Interface em `Repositories/Contracts/` (`public`, pasta local — não confundir com `Shared/Contracts`) + implementação concreta na raiz de `Repositories/` (`internal`), ambas privadas ao módulo em termos de quem referencia (`ARCHITECTURE-RULES.md` §5.1, `REPOSITORIES/RULES.md` §2)
+- [ ] Interface em `Contracts/Repositories/` (`public`, subpasta da `Contracts/` que o módulo já tem — não confundir com `Shared/Contracts`) + implementação concreta em `Repository/` (singular, `internal`), ambas privadas ao módulo em termos de quem referencia (`ARCHITECTURE-RULES.md` §5.1, `REPOSITORIES/RULES.md` §2)
 - [ ] Métodos de escrita recebem `IUnitOfWork` explícito (nunca `IDbConnection`/`IDbTransaction` crus)
 - [ ] Toda query qualifica `<schema-do-modulo>.<tabela>` — nunca cross-schema
 - [ ] `Repository` só da Aggregate Root, nunca de entidade filha
@@ -90,12 +90,12 @@ consolida a ordem de execução. Usado principalmente pelo
 - [ ] Nenhuma adição a `Modules/Shared/Kernel` ou `Helpers` específica deste módulo — se parecer necessário, a lógica fica dentro do próprio módulo
 - [ ] ([`SHARED/RULES.md`](../03-MODULES/SHARED/RULES.md))
 
-## 11.1 Messages
+## 11.1 Dictionary
 
-- [ ] `Modules/<NomeModulo>/Messages/<NomeModulo>Messages.resx` criado com toda mensagem de `Error.Validation`/`Error.NotFound`/`Error.Conflict`/`DomainException` do módulo — nenhuma string literal de mensagem de usuário direto no `Handler`/`Entity`
-- [ ] `Modules/<NomeModulo>/Messages/<NomeModulo>Messages.cs` (classe acessadora `internal`, escrita à mão) criado junto — o `.resx` sozinho **não** gera classe fortemente tipada com `dotnet build`
+- [ ] `Modules/<NomeModulo>/Dictionary/<NomeModulo>Dictionary.resx` criado com toda mensagem de `Error.Validation`/`Error.NotFound`/`Error.Conflict`/`DomainException` do módulo — nenhuma string literal de mensagem de usuário direto no `Handler`/`Entity`
+- [ ] `Modules/<NomeModulo>/Dictionary/<NomeModulo>Dictionary.cs` (classe acessadora `internal`, escrita à mão) criado junto — o `.resx` sozinho **não** gera classe fortemente tipada com `dotnet build`
 - [ ] Chave semântica (`PedidoSemItens`), nunca posicional/numérica ou o texto inteiro como chave
-- [ ] ([`MESSAGES/RULES.md`](../03-MODULES/MESSAGES/RULES.md))
+- [ ] ([`DICTIONARY/RULES.md`](../03-MODULES/DICTIONARY/RULES.md))
 
 ## 12. `<NomeModulo>ModuleInstaller.cs` — composição
 

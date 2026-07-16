@@ -22,15 +22,16 @@ Modules/
     ├── GlobalUsings.cs              # usings comuns do módulo (ex: Infrastructure.Database, Shared.Kernel)
     ├── <NomeModulo>ModuleInstaller.cs # implementa IModuleInstaller — ver seção 6
     ├── Controller/                  # ver CONTROLLER/RULES.md
-    ├── Handler/                     # ver HANDLER/RULES.md
+    ├── Handler/                     # ver HANDLER/RULES.md — um por Aggregate Root/recurso
     ├── Contracts/
-    │   └── Dtos/                    # forma de resposta HTTP — só o Controller do próprio módulo usa (CONTRACTS/RULES.md §1)
+    │   ├── Dtos/                    # forma de resposta HTTP — só o Controller do próprio módulo usa (CONTRACTS/RULES.md §1)
+    │   └── Repositories/            # interfaces de Repository — local ao módulo, não cruza fronteira (CONTRACTS/RULES.md §1.1)
     ├── Entities/                    # ver ENTITIES/RULES.md — privado
     ├── Commands/                    # ver COMMANDS/RULES.md — privado
-    ├── Repositories/                # ver REPOSITORIES/RULES.md — privado
+    ├── Repository/                  # implementação concreta de Repository — ver REPOSITORIES/RULES.md — privado
     ├── Consumers/                   # ver CONSUMERS/RULES.md — privado
     ├── Services/                    # ver SERVICES/RULES.md — privado
-    └── Messages/                    # ver MESSAGES/RULES.md — mensagens de usuário (.resx), privado
+    └── Dictionary/                  # ver DICTIONARY/RULES.md — mensagens de usuário (.resx), privado
 ```
 
 `Modules/Shared/` (Contracts, Kernel, Web) vive no mesmo nível das pastas de

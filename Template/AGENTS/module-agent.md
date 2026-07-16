@@ -38,7 +38,8 @@ Para um módulo novo, o Orchestrator (ou o usuário) fornece:
 ```
 1. Entities        — modela o agregado e seus invariantes (ENTITIES/RULES.md)
 2. Commands        — define o que o módulo processa (COMMANDS/RULES.md)
-3. Repositories    — persistência da Aggregate Root (REPOSITORIES/RULES.md)
+3. Repository      — persistência da Aggregate Root: interface em Contracts/Repositories/,
+                      implementação em Repository/ (REPOSITORIES/RULES.md)
 4. Handlers        — um por Aggregate Root/recurso, implementando IHandler<TCommand,TResult>
                       uma vez por Command/Query que o recurso aceita (HANDLER/RULES.md seção 3);
                       um segundo Handler só se o módulo expõe outro substantivo distinto sob o
@@ -49,10 +50,10 @@ Para um módulo novo, o Orchestrator (ou o usuário) fornece:
 7. Consumers       — reação a eventos de outros módulos, se aplicável (CONSUMERS/RULES.md)
 8. Services        — extraído quando lógica se repete entre Handlers/Consumers, ou para
                       implementar a ModuleFacade de I<NomeModulo> (SERVICES/RULES.md)
-9. Messages        — <NomeModulo>Messages.resx + <NomeModulo>Messages.cs (classe acessadora
+9. Dictionary      — <NomeModulo>Dictionary.resx + <NomeModulo>Dictionary.cs (classe acessadora
                       internal, escrita à mão — dotnet build não gera Designer.cs) com toda
                       mensagem usada em Error.*/DomainException dos passos 1 e 4 acima
-                      (MESSAGES/RULES.md) — feito depois do texto existir, não antes
+                      (DICTIONARY/RULES.md) — feito depois do texto existir, não antes
 10. <NomeModulo>ModuleInstaller.cs — implementa IModuleInstaller e registra tudo,
                       usando o checklist de 03-MODULES/RULES.md seção 6.
                       Descoberto automaticamente pelo Host — nada a editar em Program.cs.
