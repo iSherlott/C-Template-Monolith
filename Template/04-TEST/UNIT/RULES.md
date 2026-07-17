@@ -64,6 +64,31 @@ ou fala com Redis real.
 - `Controller` não é testado em Unit — é deliberadamente fino (`CONTROLLER/RULES.md`), sem lógica própria para isolar.
 - `Repository` não é testado em Unit — testar Dapper contra um banco mockado não valida nada real; isso é papel do `Integration` test (`INTEGRATION/RULES.md`).
 
+**❌ Errado — Unit test abrindo conexão real (deixou de ser Unit, virou Integration disfarçado):**
+
+```csharp
+public class PedidoHandlerTests
+{
+    private readonly IDbConnectionFactory _connectionFactory = new SqlServerConnectionFactory("Server=localhost;..."); // ❌ conexão real
+    private readonly IPedidoRepository _repository; // ❌ implementação concreta contra banco real, não mock
+
+    public PedidoHandlerTests() => _repository = new PedidoRepository(_connectionFactory);
+
+    [Fact]
+    public async Task Handle_DeveRetornarSucesso() // ❌ lento, frágil, depende de banco disponível pra rodar
+    {
+        var result = await new PedidoHandler(_repository, ...).Handle(command);
+        Assert.True(result.IsSuccess);
+    }
+}
+```
+
+**✅ Correto — toda dependência externa mockada (exemplo completo já na seção 4):**
+
+```csharp
+private readonly IPedidoRepository _repository = Substitute.For<IPedidoRepository>(); // ✅ mock, sem I/O real
+```
+
 ## 4. Exemplo — testando um `Handler`
 
 Um `Handler` cobre vários `Command`/`Query` do mesmo recurso

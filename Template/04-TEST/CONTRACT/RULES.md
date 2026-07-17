@@ -45,6 +45,28 @@ public void Modulo_NaoDeveReferenciar_TiposPrivados_DeOutroModulo(string origemN
 - Um teste parametrizado (`[Theory]`/`[MemberData]`) cobre **todo par de módulos** da solução — à medida que um módulo novo é criado, a regra já se aplica a ele automaticamente se `TodosOsParesDeModulo` itera sobre os módulos descobertos dinamicamente (mesmo mecanismo de `lib.Type == "project"` do Host — `01-HOST/RULES.md` seção 3), não uma lista de pares escrita à mão.
 - Também valida `Host` (`01-HOST/RULES.md` seção 8): `Host` não pode ter dependência no assembly de nenhum módulo além de `Shared`/`Infrastructure`.
 
+**❌ Errado — pares de módulo escritos à mão:**
+
+```csharp
+[Fact]
+public void Vendas_NaoDeveReferenciar_Estoque() { /* ... */ }
+
+[Fact]
+public void Estoque_NaoDeveReferenciar_Vendas() { /* ... */ }
+// ❌ um módulo novo (ex: Pagamentos) fica sem cobertura até alguém lembrar de escrever os pares dele
+```
+
+**✅ Correto — gerado a partir dos módulos descobertos dinamicamente (exemplo completo acima):**
+
+```csharp
+public static IEnumerable<object[]> TodosOsParesDeModulo() =>
+    from origem in ModulosDescobertos() // mesmo mecanismo de lib.Type == "project" do Host
+    from destino in ModulosDescobertos()
+    where origem != destino
+    select new object[] { origem, destino };
+// módulo novo entra automaticamente na proxima execução, sem editar este arquivo
+```
+
 ## 4. Teste de forma — `Test/<NomeModulo>/Contract/`
 
 Valida que a forma pública (`Dto`, `IntegrationEvent`) do módulo não mudou de
@@ -65,6 +87,25 @@ public void PedidoCriadoEvent_DeveManterFormaEsperada()
 
 - Se um campo é removido/renomeado sem seguir o processo de depreciação (`CONTRACTS/RULES.md` seção 6), este teste falha — é o mecanismo automático que aplica aquela regra.
 - Adicionar um campo novo opcional exige atualizar a lista esperada neste teste — é uma mudança consciente, não uma quebra silenciosa.
+
+**❌ Errado — teste de forma abrindo banco/fila real para "confirmar que funciona":**
+
+```csharp
+[Fact]
+public async Task PedidoCriadoEvent_DeveManterFormaEsperada()
+{
+    await using var connection = new SqlConnection(connectionString); // ❌ Contract test não precisa de infra real
+    var pedido = await connection.QueryFirstAsync<Pedido>(sql);
+    var evento = new PedidoCriadoEvent(pedido.Id, pedido.ClienteId, pedido.Total);
+    // ...
+}
+```
+
+**✅ Correto — só reflection sobre o próprio tipo, sem I/O (exemplo completo acima):**
+
+```csharp
+var propriedades = typeof(PedidoCriadoEvent).GetProperties().Select(p => p.Name);
+```
 
 ## 5. Anti-padrões — o que nunca pode aparecer aqui
 

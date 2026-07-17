@@ -69,6 +69,40 @@ Cada teste é responsável por não deixar estado que afete o próximo:
 - Quando o cenário exige testar o `Commit` de fato (ex: validar que o `OutboxPublisherService` publicou depois do commit), o teste limpa explicitamente as linhas que criou ao final (`try/finally` ou `IAsyncLifetime` por teste).
 - Testes de integração **não dependem de ordem de execução** — cada um monta seu próprio cenário do zero, nunca assume dado deixado por um teste anterior.
 
+**❌ Errado — segundo teste depende do estado deixado pelo primeiro:**
+
+```csharp
+[Fact]
+public async Task Teste1_DeveCriarPedido()
+{
+    await _repository.InserirAsync(_pedidoPadrao, unitOfWork);
+    unitOfWork.Commit(); // ❌ nunca limpa — fica no banco pros próximos testes
+}
+
+[Fact]
+public async Task Teste2_DeveListarPedidos() // ❌ só passa se Teste1 rodou antes e na mesma suíte
+{
+    var pedidos = await _repository.ListarAsync();
+    Assert.Single(pedidos); // quebra se rodado isolado, ou se a ordem mudar, ou se rodar em paralelo
+}
+```
+
+**✅ Correto — cada teste monta seu próprio cenário e reverte sozinho:**
+
+```csharp
+[Fact]
+public async Task DeveListarPedidos_QuandoExisteUmPedidoCriadoNesteTeste()
+{
+    using var unitOfWork = _unitOfWorkFactory.Create();
+    await _repository.InserirAsync(_pedidoPadrao, unitOfWork); // cenário próprio deste teste
+
+    var pedidos = await _repository.ListarAsync();
+
+    Assert.Contains(pedidos, p => p.Id == _pedidoPadrao.Id);
+    // using sem Commit() -> Dispose() reverte sozinho, próximo teste começa limpo
+}
+```
+
 ## 5. O que testar aqui (e o que não)
 
 | Cenário | Testar em Integration? |
