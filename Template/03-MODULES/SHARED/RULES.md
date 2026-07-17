@@ -16,6 +16,27 @@ depender de `Infrastructure` quando necessário (ex: `Web` conhece
 `Result`/`Error` mas não precisa de `Infrastructure`), seguindo a mesma
 direção permitida para qualquer código de módulo.
 
+**❌ Errado — `Shared` referenciando um módulo específico (inverte a única direção permitida):**
+
+```csharp
+// Modules/Shared/Web/ResultExtensions.cs
+using Vendas.Entities; // ❌ Shared nunca conhece um módulo específico
+
+public static IActionResult ToActionResult<T>(this Result<T> result)
+{
+    if (result.Value is Pedido pedido) // ❌ pior ainda: Shared "sabendo" o que é um Pedido
+        return new OkObjectResult(pedido.Status);
+    // ...
+}
+```
+
+**✅ Correto — `Shared` só conhece primitivos genéricos, nunca um tipo de módulo específico (exemplo completo na seção 5):**
+
+```csharp
+public static IActionResult ToActionResult<T>(this Result<T> result, int successStatusCode = StatusCodes.Status200OK) =>
+    result.IsSuccess ? new ObjectResult(result.Value) { StatusCode = successStatusCode } : /* ... */;
+```
+
 ## 2. Estrutura de pastas
 
 ```
@@ -230,6 +251,30 @@ especificamente sobre modelagem de domínio/aplicação) nem em `Web`
 helper de data/hora. Se um "helper" começa a conter uma regra que só faz
 sentido para um módulo específico, ele não pertence aqui — volta para dentro
 do módulo.
+
+**❌ Errado — `Helper` carregando regra de negócio de um módulo específico:**
+
+```csharp
+// Modules/Shared/Helpers/PedidoHelper.cs — ❌ nome já denuncia: isso é de um módulo, não genérico
+public static class PedidoHelper
+{
+    public static decimal CalcularDescontoFidelidade(int totalPedidosAnteriores) =>
+        totalPedidosAnteriores > 10 ? 0.1m : 0m; // ❌ regra de negócio de Vendas, não utilitário técnico
+}
+```
+
+**✅ Correto — `Helper` só faz transformação técnica sem significado de domínio; a regra fica no módulo:**
+
+```csharp
+// Modules/Shared/Helpers/StringHelper.cs — ✅ genuinamente genérico, qualquer módulo poderia usar
+public static class StringHelper
+{
+    public static string TruncarComReticencias(string texto, int tamanhoMaximo) =>
+        texto.Length <= tamanhoMaximo ? texto : texto[..tamanhoMaximo] + "...";
+}
+
+// a regra de desconto por fidelidade fica dentro de Modules/Vendas/Entities/Pedido.cs ou Services/
+```
 
 ## 7. Anti-padrões — o que nunca pode aparecer aqui
 
