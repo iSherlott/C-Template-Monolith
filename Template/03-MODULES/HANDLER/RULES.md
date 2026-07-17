@@ -6,24 +6,25 @@
 
 `Handler` é onde a **regra de aplicação** vive: orquestra `Repository`,
 `Service`, `IEventBus`, `ICacheService` e, quando necessário, a interface
-pública de outro módulo, para executar um `Command` ou `Query`. É o
-coração do módulo — mas não conhece HTTP, não conhece SQL, e não conhece o
-funcionamento interno de nenhum outro módulo.
+pública de outro módulo, para executar um `Command` (mutação ou leitura —
+`COMMANDS/RULES.md` seção 4). É o coração do módulo — mas não conhece HTTP,
+não conhece SQL, e não conhece o funcionamento interno de nenhum outro
+módulo.
 
 ## 2. Estrutura de pastas
 
 ```
 Modules/<NomeModulo>/
 └── Handler/
-    └── <Recurso>Handler.cs    # ex: PedidoHandler.cs — cobre TODOS os Commands/Queries do recurso "Pedido"
+    └── <Recurso>Handler.cs    # ex: PedidoHandler.cs — cobre TODOS os Commands do recurso "Pedido"
 ```
 
 **Decisão:** um `Handler` por **recurso** (tipicamente, um por `Controller`
-— seção 4 detalha a exceção de subpath), não um `Handler` por
-`Command`/`Query` individual. `PedidoHandler` implementa
-`IHandler<TCommand, TResult>` (`SHARED/RULES.md`) **uma vez para cada**
-`Command`/`Query` que o recurso aceita — `CriarPedidoCommand`,
-`CancelarPedidoCommand`, `ObterPedidoPorIdQuery`, todos na mesma classe,
+— seção 4 detalha a exceção de subpath), não um `Handler` por `Command`
+individual. `PedidoHandler` implementa `IHandler<TCommand, TResult>`
+(`SHARED/RULES.md`) **uma vez para cada** `Command` que o recurso aceita —
+`CreatePedidoCommand`,
+`CancelPedidoCommand`, `GetPedidoByIdCommand`, todos na mesma classe,
 cada um com seu próprio método `Handle` (sobrecarregado por tipo de
 parâmetro).
 
@@ -39,8 +40,8 @@ public interface IHandler<in TCommand, TResult>
 
 ```csharp
 public class PedidoHandler :
-    IHandler<CriarPedidoCommand, PedidoDto>,
-    IHandler<ObterPedidoPorIdQuery, PedidoDto>
+    IHandler<CreatePedidoCommand, PedidoDto>,
+    IHandler<GetPedidoByIdCommand, PedidoDto>
 {
     private readonly IPedidoRepository _pedidoRepository;
     private readonly IUnitOfWorkFactory _unitOfWorkFactory;
@@ -56,10 +57,10 @@ public class PedidoHandler :
         _eventBus = eventBus;
     }
 
-    public async Task<Result<PedidoDto>> Handle(CriarPedidoCommand command)
+    public async Task<Result<PedidoDto>> Handle(CreatePedidoCommand command)
     {
         if (command.Itens.Count == 0)
-            return Result<PedidoDto>.Failure(Error.Validation(Messages.PedidoSemItens));
+            return Result<PedidoDto>.Failure(Error.Validation(PedidoDictionary.PedidoSemItens));
 
         var pedido = Pedido.Criar(command.ClienteId, command.Itens);
 
@@ -73,28 +74,28 @@ public class PedidoHandler :
         return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
     }
 
-    public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+    public async Task<Result<PedidoDto>> Handle(GetPedidoByIdCommand command)
     {
-        var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+        var pedido = await _pedidoRepository.ObterPorIdAsync(command.PedidoId);
         if (pedido is null)
-            return Result<PedidoDto>.Failure(Error.NotFound(Messages.PedidoNaoEncontrado));
+            return Result<PedidoDto>.Failure(Error.NotFound(PedidoDictionary.PedidoNaoEncontrado));
 
         return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
     }
 }
 ```
 
-- Cada método `Handle` é público, aceita **um** `Command`/`Query` como
-  único parâmetro, e o overload correto é resolvido pelo compilador no
+- Cada método `Handle` é público, aceita **um** `Command` como único
+  parâmetro, e o overload correto é resolvido pelo compilador no
   `Controller` (mesmo tipo estático do argumento — não precisa de reflection
   nem de `switch` de tipo dentro do `Handler`). Isso preserva a decisão "sem
   mediator" (`ARCHITECTURE-RULES.md` seção 7) — o `Controller` continua
   chamando o método diretamente, só que agora numa classe que cobre mais de
   um `Command`.
 - Retorno sempre `Task<Result<TDto>>` — nunca `Task<Entity>`, nunca `void`, nunca lança exceção para representar uma falha de negócio esperada (ver seção 7).
-- Lifetime de registro no DI: `Scoped` (consistente com `03-MODULES/RULES.md` seção 6). Uma única instância cobre todos os `Command`/`Query` do recurso na mesma requisição.
+- Lifetime de registro no DI: `Scoped` (consistente com `03-MODULES/RULES.md` seção 6). Uma única instância cobre todos os `Command` do recurso na mesma requisição.
 - **`Handler` nunca instancia `IDbConnection`/`IDbTransaction` diretamente** — a conexão é aberta e fechada por dentro de `IUnitOfWorkFactory.Create()` (`DATABASE/RULES.md` seção 5). O `Handler` só decide *quando* confirmar (`unitOfWork.Commit()`), nunca *como* a conexão é gerenciada.
-- Dependências que só um dos `Handle` usa (ex: `IEventBus`, usado só por `CriarPedidoCommand`) continuam injetadas no construtor único da classe — não há problema em uma dependência ficar "parada" durante o `Handle` de outro `Command`, o custo de injeção é desprezível.
+- Dependências que só um dos `Handle` usa (ex: `IEventBus`, usado só por `CreatePedidoCommand`) continuam injetadas no construtor único da classe — não há problema em uma dependência ficar "parada" durante o `Handle` de outro `Command`, o custo de injeção é desprezível.
 
 ## 4. Quando separar em `Handler`s diferentes — recurso distinto no mesmo Controller
 
@@ -121,11 +122,11 @@ public class CatalogoController : ControllerBase
     }
 
     [HttpPost("generos")]
-    public async Task<IActionResult> PostGenero([FromBody] CriarGeneroRequest request) =>
-        (await _generoHandler.Handle(new CriarGeneroCommand(request.Nome))).ToActionResult(StatusCodes.Status201Created);
+    public async Task<IActionResult> PostGenero([FromBody] CreateGeneroRequest request) =>
+        (await _generoHandler.Handle(new CreateGeneroCommand(request.Nome))).ToActionResult(StatusCodes.Status201Created);
 
     [HttpPost("animes")]
-    public async Task<IActionResult> PostAnime([FromBody] CriarAnimeCommand command) =>
+    public async Task<IActionResult> PostAnime([FromBody] CreateAnimeCommand command) =>
         (await _animeHandler.Handle(command)).ToActionResult(StatusCodes.Status201Created);
 }
 ```
@@ -151,9 +152,9 @@ um único `Handler`.
 | `ICacheService` | Ler/invalidar cache do próprio módulo (`CACHE/RULES.md`) |
 | `I<NomeModulo>` de outro módulo | Quando precisa de dado/ação síncrona que pertence a outro módulo (`ARCHITECTURE-RULES.md` seção 4) |
 
-Um `Handle` de `Query` simples (sem escrita) normalmente só usa `Repository`
-(leitura) e/ou `ICacheService` — não precisa de `IUnitOfWork`, já que não há
-nada para tornar atômico.
+Um `Handle` de leitura simples (`Get*Command`, sem escrita) normalmente só
+usa `Repository` (leitura) e/ou `ICacheService` — não precisa de
+`IUnitOfWork`, já que não há nada para tornar atômico.
 
 Quando o fluxo grava em **mais de um** `Repository` (ou grava e publica
 evento), o mesmo `IUnitOfWork` é passado para cada chamada — não existe
@@ -180,11 +181,11 @@ Quando o fluxo depende de outro módulo, o `Handler` injeta a interface
 pública desse módulo — nunca `Repository`/`Service` interno dele:
 
 ```csharp
-public class PedidoHandler : IHandler<CriarPedidoCommand, PedidoDto>
+public class PedidoHandler : IHandler<CreatePedidoCommand, PedidoDto>
 {
     private readonly IEstoqueModule _estoqueModule; // Shared.Contracts — ver CONTRACTS/RULES.md seção 1
 
-    public async Task<Result<PedidoDto>> Handle(CriarPedidoCommand command)
+    public async Task<Result<PedidoDto>> Handle(CreatePedidoCommand command)
     {
         var disponivel = await _estoqueModule.VerificarDisponibilidadeAsync(command.Itens);
         if (!disponivel)
@@ -210,11 +211,11 @@ interface nunca exige `ProjectReference` de um módulo de negócio para outro.
 **❌ Errado:**
 
 ```csharp
-public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+public async Task<Result<PedidoDto>> Handle(GetPedidoByIdCommand command)
 {
     try
     {
-        var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+        var pedido = await _pedidoRepository.ObterPorIdAsync(command.PedidoId);
         if (pedido is null)
             throw new Exception("Pedido não encontrado"); // ❌ falha esperada não deveria ser exceção
         return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
@@ -229,9 +230,9 @@ public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
 **✅ Correto:**
 
 ```csharp
-public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+public async Task<Result<PedidoDto>> Handle(GetPedidoByIdCommand command)
 {
-    var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+    var pedido = await _pedidoRepository.ObterPorIdAsync(command.PedidoId);
     if (pedido is null)
         return Result<PedidoDto>.Failure(Error.NotFound(PedidoDictionary.PedidoNaoEncontrado));
 
@@ -253,21 +254,21 @@ vivendo na própria classe do `Dto`.
 ```csharp
 public interface IHandler<in TCommand, TResult> { /* ... */ }
 
-public class PedidoHandler : IHandler<ObterPedidoPorIdQuery, Pedido> // ❌ TResult é a Entity
+public class PedidoHandler : IHandler<GetPedidoByIdCommand, Pedido> // ❌ TResult é a Entity
 {
-    public async Task<Result<Pedido>> Handle(ObterPedidoPorIdQuery query) =>
-        Result<Pedido>.Success(await _pedidoRepository.ObterPorIdAsync(query.PedidoId)); // ❌ vaza modelo interno
+    public async Task<Result<Pedido>> Handle(GetPedidoByIdCommand command) =>
+        Result<Pedido>.Success(await _pedidoRepository.ObterPorIdAsync(command.PedidoId)); // ❌ vaza modelo interno
 }
 ```
 
 **✅ Correto — Handler sempre devolve `Dto`:**
 
 ```csharp
-public class PedidoHandler : IHandler<ObterPedidoPorIdQuery, PedidoDto>
+public class PedidoHandler : IHandler<GetPedidoByIdCommand, PedidoDto>
 {
-    public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+    public async Task<Result<PedidoDto>> Handle(GetPedidoByIdCommand command)
     {
-        var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+        var pedido = await _pedidoRepository.ObterPorIdAsync(command.PedidoId);
         return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
     }
 }
@@ -284,7 +285,7 @@ public class PedidoHandler : IHandler<ObterPedidoPorIdQuery, PedidoDto>
 | `Handler` instanciando `IDbConnection`/`IDbTransaction` diretamente | Gerenciamento de conexão é responsabilidade de `IUnitOfWorkFactory` (`DATABASE/RULES.md` seção 5), não do Handler |
 | Parâmetro booleano tipo `commit: bool` num método de `Repository` pra controlar se finaliza a transação | O controle de commit/rollback é sempre do `IUnitOfWork` (`.Commit()`/`Dispose()` automático), nunca de uma flag por chamada |
 | Capturar exceção de infraestrutura só para virar `Result.Failure(Unexpected)` sem ação de recuperação | Duplica o que o middleware global já faz, esconde erro real do log de exceção |
-| Um `Handler` implementando `IHandler<T,R>` para `Command`s de **substantivos diferentes** (ex: `GeneroHandler` também tratando `CriarAnimeCommand`) | Quebra a regra "banana vs. tomate" (seção 4) — cada Aggregate Root distinta tem seu próprio `Handler` |
+| Um `Handler` implementando `IHandler<T,R>` para `Command`s de **substantivos diferentes** (ex: `GeneroHandler` também tratando `CreateAnimeCommand`) | Quebra a regra "banana vs. tomate" (seção 4) — cada Aggregate Root distinta tem seu próprio `Handler` |
 | `switch`/`if` de tipo dentro de um único método `Handle` para tratar comandos diferentes | O ponto de sobrecarga é o próprio C# (múltiplos métodos `Handle`), nunca um dispatch manual dentro de um método genérico |
 | `Handler` implementado corretamente, mas nenhum `Controller` o injeta — a rota HTTP chama um dispatcher genérico (`IMediator`/`ISender`/bus caseiro) em vez de `_handler.Handle(...)` | O `Handler` correto não compensa um `Controller` que reabriu a decisão "sem mediator" — ver `CONTROLLER/RULES.md` seções 3 e 8 para o anti-padrão e o teste de arquitetura que o pega |
 
@@ -293,4 +294,4 @@ public class PedidoHandler : IHandler<ObterPedidoPorIdQuery, PedidoDto>
 - Code review confere que toda falha de negócio esperada retorna `Result.Failure` com o `ErrorType` correto, nunca exceção customizada para esse fim.
 - Code review bloqueia qualquer `using` de namespace de outro módulo de negócio (`Entities`/`Repositories`/`Services` de outro módulo) dentro de um Handler — só `Shared.Contracts` é permitido, e fisicamente é o único que compila, já que não há `ProjectReference` para nenhum outro módulo (`CONTRACTS/RULES.md` seção 2).
 - Code review confere que o construtor do `Handler` continua `public`, mesmo que suas dependências (`Repository` implementação, `Service`) sejam `internal` — só a interface injetada precisa ser visível (`ARCHITECTURE-RULES.md` seção 5.1).
-- Code review aplica o teste "mesma Aggregate Root?" (seção 4) sempre que um `Handler` novo for proposto para um `Command`/`Query` de um recurso que já tem `Handler` — decide se entra na classe existente ou vira uma nova.
+- Code review aplica o teste "mesma Aggregate Root?" (seção 4) sempre que um `Handler` novo for proposto para um `Command` de um recurso que já tem `Handler` — decide se entra na classe existente ou vira uma nova.

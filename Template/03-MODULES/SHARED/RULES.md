@@ -165,7 +165,7 @@ public interface IHandler<in TCommand, TResult>
 ```
 
 Contrato genérico que todo `Handler` implementa — **uma vez por
-`Command`/`Query` que aceita**, não uma vez por classe (`HANDLER/RULES.md`
+`Command` que aceita** (mutação ou leitura), não uma vez por classe (`HANDLER/RULES.md`
 seção 3 tem o detalhamento completo e o porquê de um único `Handler` cobrir
 múltiplos comandos de um mesmo recurso). Vive em `Kernel` porque é um
 primitivo de composição sem conhecimento de negócio, na mesma categoria de

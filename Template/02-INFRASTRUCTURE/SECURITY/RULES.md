@@ -154,7 +154,7 @@ public class UnauthorizedAppException : AppException
   casos que acontecem **fora** de um `Handler` — ex: middleware de
   autorização rejeitando a requisição antes de qualquer `Handler` rodar,
   ou uma validação de infraestrutura (token expirado, recurso de
-  configuração ausente) que não se encaixa no fluxo de `Command`/`Query`.
+  configuração ausente) que não se encaixa no fluxo de `Command`.
 - `DomainException` (`SHARED/RULES.md` seção 3) continua separada e
   **não** herda de `AppException` — ela representa violação de invariante
   (bug), sempre `500`, nunca um tipo de erro esperado com status HTTP
@@ -212,9 +212,9 @@ public class GlobalExceptionMiddleware
 **❌ Errado — lançando exceção para uma falha de negócio esperada dentro do `Handler`:**
 
 ```csharp
-public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+public async Task<Result<PedidoDto>> Handle(GetPedidoByIdCommand command)
 {
-    var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+    var pedido = await _pedidoRepository.ObterPorIdAsync(command.PedidoId);
     if (pedido is null)
         throw new NotFoundException("Pedido não encontrado."); // ❌ isso é Result.Failure, não AppException
 
@@ -232,9 +232,9 @@ absolutamente esperado, e uma segunda forma de fazer a mesma coisa que
 **✅ Correto:**
 
 ```csharp
-public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+public async Task<Result<PedidoDto>> Handle(GetPedidoByIdCommand command)
 {
-    var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+    var pedido = await _pedidoRepository.ObterPorIdAsync(command.PedidoId);
     if (pedido is null)
         return Result<PedidoDto>.Failure(Error.NotFound(PedidoDictionary.PedidoNaoEncontrado));
 

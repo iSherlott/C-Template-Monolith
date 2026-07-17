@@ -35,7 +35,7 @@ exemplo real validado em [`00-PRINCIPLES/REFERENCE-IMPLEMENTATION.md`](../00-PRI
 Para um módulo novo, o Orchestrator (ou o usuário) fornece:
 
 - Nome do módulo (define schema, namespace, prefixo de cache — `03-MODULES/RULES.md` seção 3).
-- Lista de casos de uso (o que o módulo precisa fazer — vira `Command`/`Query` + `Handler`).
+- Lista de casos de uso (o que o módulo precisa fazer — vira `Command` + `Handler`, mutação ou leitura sob o mesmo sufixo `Command`).
 - Se o módulo publica eventos, e quais.
 - Se o módulo depende de outro módulo já existente (via `I<OutroModulo>`) ou consome eventos de outro módulo (via `Consumer`).
 
@@ -47,7 +47,7 @@ Para um módulo novo, o Orchestrator (ou o usuário) fornece:
 3. Repository      — persistência da Aggregate Root: interface em Contracts/Repositories/,
                       implementação em Repository/ (REPOSITORIES/RULES.md)
 4. Handlers        — um por Aggregate Root/recurso, implementando IHandler<TCommand,TResult>
-                      uma vez por Command/Query que o recurso aceita (HANDLER/RULES.md seção 3);
+                      uma vez por Command que o recurso aceita (HANDLER/RULES.md seção 3);
                       um segundo Handler só se o módulo expõe outro substantivo distinto sob o
                       mesmo Controller (HANDLER/RULES.md seção 4, critério "banana vs. tomate")
 5. Contracts       — Dtos (dentro do módulo) + I<NomeModulo>/IntegrationEvents

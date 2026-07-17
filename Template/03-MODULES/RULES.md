@@ -86,7 +86,7 @@ público (`I<NomeModulo>` em `Shared/Contracts`).
 
 ```
 Request HTTP
-  → Controller monta Command/Query
+  → Controller monta Command (COMMANDS/RULES.md seção 4)
   → Controller injeta e chama o Handler específico (DI manual — ARCHITECTURE-RULES seção 7)
   → Handler orquestra: cria um IUnitOfWork se necessário (DATABASE/RULES.md §5),
     chama Repository/Service, opcionalmente publica IntegrationEvent via IEventBus (MESSAGING/RULES.md §5)
@@ -189,16 +189,18 @@ Um módulo cujo `Install()` não cobre algum item aplicável desta lista está
 incompleto — é item de checklist de code review para módulo novo (ver
 `CHECKLISTS/new-module-checklist.md`).
 
-## 7. Commands — convenção unificada (Command + Query)
+## 7. Commands — convenção unificada (sufixo único `Command`)
 
-A pasta `Commands/` contém tanto comandos de mutação quanto consultas
-(Query) — não existe uma pasta `Queries/` separada nesta arquitetura. A
-distinção entre os dois continua existindo pelo nome da classe (`CriarPedidoCommand`
-vs. `ObterPedidoPorIdQuery`) e pelo `Handler` correspondente, não pela
-localização física. Isso mantém a estrutura de pastas do módulo enxuta; se um
-módulo específico crescer a ponto de justificar a separação física, isso é
-uma decisão local documentada no próprio módulo, não uma mudança na regra
-geral.
+A pasta `Commands/` contém tanto mutação quanto leitura, todos sob o mesmo
+sufixo `Command` — não existe sufixo `Query` nem pasta `Queries/` separada
+nesta arquitetura (`COMMANDS/RULES.md` seção 4 tem o detalhamento completo,
+incluindo os verbos em inglês `Create`/`Update`/`Get`/`Delete`). A distinção
+entre uma ação e outra é só o verbo no nome da classe (`CreatePedidoCommand`
+vs. `GetPedidoByIdCommand`) e o `Handler` correspondente, não a localização
+física nem um sufixo diferente. Isso mantém a estrutura de pastas do módulo
+enxuta; se um módulo específico crescer a ponto de justificar a separação
+física, isso é uma decisão local documentada no próprio módulo, não uma
+mudança na regra geral.
 
 ## 8. Quando criar um módulo novo
 

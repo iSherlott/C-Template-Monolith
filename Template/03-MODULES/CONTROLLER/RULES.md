@@ -5,8 +5,9 @@
 ## 1. Missão
 
 `Controller` é a camada de **tradução HTTP** — converte requisição em
-`Command`/`Query`, chama o `Handler` correspondente, e converte o resultado de
-volta em resposta HTTP. Não decide nada de negócio; só roteia e traduz.
+`Command` (mutação ou leitura — `COMMANDS/RULES.md` seção 4), chama o
+`Handler` correspondente, e converte o resultado de volta em resposta HTTP.
+Não decide nada de negócio; só roteia e traduz.
 
 Teste rápido: *"se eu trocasse o transporte de HTTP para gRPC amanhã, essa
 linha de código sobreviveria?"* Se a resposta for não porque ela é regra de
@@ -49,9 +50,9 @@ public class PedidosController : ControllerBase
     public PedidosController(IMediator mediator) => _mediator = mediator;
 
     [HttpPost]
-    public async Task<IActionResult> Post([FromBody] CriarPedidoRequest request)
+    public async Task<IActionResult> Post([FromBody] CreatePedidoRequest request)
     {
-        var command = new CriarPedidoCommand(request.ClienteId, request.Itens);
+        var command = new CreatePedidoCommand(request.ClienteId, request.Itens);
         var result = await _mediator.SendAsync(command); // ❌ proibido — ver ARCHITECTURE-RULES.md §7
         return Ok(result);
     }
@@ -77,9 +78,9 @@ public class PedidosController : ControllerBase
     public PedidosController(PedidoHandler pedidoHandler) => _pedidoHandler = pedidoHandler;
 
     [HttpPost]
-    public async Task<IActionResult> Post([FromBody] CriarPedidoRequest request)
+    public async Task<IActionResult> Post([FromBody] CreatePedidoRequest request)
     {
-        var command = new CriarPedidoCommand(request.ClienteId, request.Itens);
+        var command = new CreatePedidoCommand(request.ClienteId, request.Itens);
         var result = await _pedidoHandler.Handle(command);
         return result.ToActionResult(StatusCodes.Status201Created);
     }
@@ -87,7 +88,7 @@ public class PedidosController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id)
     {
-        var result = await _pedidoHandler.Handle(new ObterPedidoPorIdQuery(id));
+        var result = await _pedidoHandler.Handle(new GetPedidoByIdCommand(id));
         return result.ToActionResult();
     }
 }

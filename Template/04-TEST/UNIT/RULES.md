@@ -91,7 +91,7 @@ private readonly IPedidoRepository _repository = Substitute.For<IPedidoRepositor
 
 ## 4. Exemplo — testando um `Handler`
 
-Um `Handler` cobre vários `Command`/`Query` do mesmo recurso
+Um `Handler` cobre vários `Command` do mesmo recurso (mutação e leitura)
 (`HANDLER/RULES.md` seção 3) — a classe de teste espelha isso: **um método
 de teste por cenário de cada `Handle`**, todos na mesma classe
 `<Recurso>HandlerTests`, não uma classe de teste por `Command` como antes
@@ -107,10 +107,10 @@ public class PedidoHandlerTests
     private PedidoHandler CriarHandler() => new(_repository, _unitOfWorkFactory, _eventBus);
 
     [Fact]
-    public async Task Handle_CriarPedidoCommand_DeveRetornarFailureValidation_QuandoPedidoSemItens()
+    public async Task Handle_CreatePedidoCommand_DeveRetornarFailureValidation_QuandoPedidoSemItens()
     {
         // Arrange
-        var command = new CriarPedidoCommand(Guid.NewGuid(), Array.Empty<ItemPedidoInput>());
+        var command = new CreatePedidoCommand(Guid.NewGuid(), Array.Empty<ItemPedidoInput>());
 
         // Act
         var result = await CriarHandler().Handle(command);
@@ -121,12 +121,12 @@ public class PedidoHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ObterPedidoPorIdQuery_DeveRetornarNotFound_QuandoPedidoNaoExiste()
+    public async Task Handle_GetPedidoByIdCommand_DeveRetornarNotFound_QuandoPedidoNaoExiste()
     {
         var idInexistente = Guid.NewGuid();
         _repository.ObterPorIdAsync(idInexistente).Returns((Pedido?)null);
 
-        var result = await CriarHandler().Handle(new ObterPedidoPorIdQuery(idInexistente));
+        var result = await CriarHandler().Handle(new GetPedidoByIdCommand(idInexistente));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorType.NotFound, result.Error!.Type);

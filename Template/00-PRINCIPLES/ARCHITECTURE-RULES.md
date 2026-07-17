@@ -133,7 +133,7 @@ IRepository (public)
 | `Repository` (interface) | `public` | Aparece no construtor de `Handler`, que é `public` |
 | `Repository` (implementação concreta) | **`internal`** | Só é nomeada dentro do próprio `Install()` do módulo (`services.AddScoped<IRepo, RepoImpl>()`) — nunca em assinatura pública |
 | `Handler` | `public` | Injetado direto no construtor do `Controller` |
-| `Command`/`Query` | `public` | Recebido como parâmetro de ação do `Controller` |
+| `Command` | `public` | Recebido como parâmetro de ação do `Controller` |
 | `Service`/`<Nome>ModuleFacade` (implementação concreta) | **`internal`** | Só nomeada dentro do próprio `Install()` (`services.AddScoped<IContrato, Facade>()`) |
 | `Consumer` | **`internal`** | Só nomeado dentro do próprio `Install()` (`services.AddHostedService<Consumer>()`) |
 | `Controller` | `public` | Exigido pelo ASP.NET Core |
@@ -168,17 +168,18 @@ pública do `Controller` (que passaria a só conhecer `ICommand<TResult>`) e
 - Se um módulo precisa de dado que "pertence" a outro, ele pede pela interface pública (`I<NomeModulo>` em `Shared/Contracts`) ou mantém uma cópia local sincronizada via `IntegrationEvent` — nunca por acesso direto ao schema alheio.
 - Migrations são versionadas por módulo, dentro do próprio schema.
 
-## 7. Roteamento de Command/Query — resolução manual via DI
+## 7. Roteamento de Command — resolução manual via DI
 
 **Decisão:** sem biblioteca mediator (ex: MediatR). `Controller` injeta o
 `Handler` específico diretamente via construtor e chama o método explicitamente.
 
 - **Um `Handler` por recurso** (tipicamente um por `Controller`, com exceção
   de subcaminhos de Aggregate Root distinta — `HANDLER/RULES.md` seção 4),
-  não um `Handler` por `Command`/`Query` individual. O `Handler` implementa
+  não um `Handler` por `Command` individual. O `Handler` implementa
   `IHandler<TCommand, TResult>` (`SHARED/RULES.md` seção 3) uma vez por
-  `Command`/`Query` que aceita, com método de entrada explícito por
-  sobrecarga (ex: `Handle(CriarPedidoCommand command)`, `Handle(ObterPedidoPorIdQuery query)`
+  `Command` que aceita (mutação e leitura sob o mesmo sufixo `Command` —
+  `COMMANDS/RULES.md` seção 4), com método de entrada explícito por
+  sobrecarga (ex: `Handle(CreatePedidoCommand command)`, `Handle(GetPedidoByIdCommand command)`
   na mesma classe) — `HANDLER/RULES.md` seção 3 tem o detalhamento completo.
 - Nenhum dispatcher genérico por convenção — nem `IMediator.Send(...)` (MediatR), nem um bus/dispatcher caseiro com um método `Send`/`SendAsync`/`Dispatch` que resolve o `Handler` certo por reflection/nome de tipo em runtime. A proibição é do **padrão**, não só da biblioteca MediatR especificamente — um `IRequestDispatcher`/`ICommandBus` escrito à mão que faça a mesma coisa é igualmente proibido. A dependência entre Controller e Handler é explícita e rastreável por "ir para definição", sem indireção de convenção/reflection — o overload correto é resolvido pelo compilador C#, não por reflection em runtime. Isso vale mesmo que o `Handler` correto já exista e esteja correto no módulo: se o `Controller` não o injeta e chama `Handle()` diretamente, a violação existe independente da qualidade do `Handler` (exemplo completo e teste de arquitetura de enforcement em `03-MODULES/CONTROLLER/RULES.md` seções 3 e 8).
 - Cross-cutting concerns (validação, logging, transação, exceção não tratada) que normalmente viveriam num pipeline de mediator são resolvidos por decoration explícita do `Handler` ou middleware do `Host`: exceção não tratada → `GlobalExceptionMiddleware` (`02-INFRASTRUCTURE/SECURITY/RULES.md` seção 6); transação → `IUnitOfWork` explícito no `Handler` (`HANDLER/RULES.md` seção 5); validação de forma → `[ApiController]`/data annotation na borda (`CONTROLLER/RULES.md` seção 6).
@@ -253,4 +254,4 @@ public readonly record struct Result<T>(bool IsSuccess, T? Value, Error? Error);
 | Contracts | `Modules/Shared/Contracts/` — onde vivem `I<NomeModulo>` e `IntegrationEvents` de todos os módulos; é a única forma de um módulo ser visível para outro |
 | IntegrationEvent | Evento publicado por um módulo via Outbox/RabbitMQ para consumo assíncrono por outros módulos |
 | Outbox | Padrão que garante que escrita de estado e publicação de evento aconteçam atomicamente |
-| Handler | Executor de um `Command` ou `Query` específico, resolvido via DI direta |
+| Handler | Executor de um `Command` específico (mutação ou leitura), resolvido via DI direta |

@@ -96,7 +96,7 @@ Arquivo: Modules/Vendas/Services/PedidoOrquestracao.cs
 
 ```
 Arquivo: Modules/Vendas/Services/PedidoOrquestracao.cs
-✅ comportamento = orquestra Command/Query, chama Repository/IEventBus,
+✅ comportamento = orquestra Command (mutação/leitura), chama Repository/IEventBus,
    é o ponto de entrada chamado pelo Controller → é HANDLER (NODE-MAP.md
    §2, linha Modules/<N>/Handler/)
 ✅ ação: mover para Modules/Vendas/Handler/PedidoHandler.cs, ajustar

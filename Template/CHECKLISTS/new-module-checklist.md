@@ -60,7 +60,7 @@ parênteses (o "por quê") no `RULES.md` referenciado, não só o texto do item
 ## 2. Estrutura de pastas — `module-agent`
 
 - [ ] `Modules/<NomeModulo>/<NomeModulo>.csproj` criado, referenciando só `Infrastructure` e `Shared` (nunca outro módulo)
-- [ ] `Modules/<NomeModulo>/` criado com as subpastas: `Controller`, `Handler`, `Contracts` (`Dtos/` + `Repositories/` — `I<NomeModulo>`/`IntegrationEvents` vão em `Shared/Contracts`, ver §7 abaixo), `Entities`, `Commands`, `Repository` (implementação concreta, singular), `Consumers`, `Services` ([`03-MODULES/RULES.md`](../03-MODULES/RULES.md) §2)
+- [ ] `Modules/<NomeModulo>/` criado com as subpastas: `Controller`, `Handler`, `Contracts` (`Requests/` + `Dtos/` + `Repositories/` — `I<NomeModulo>`/`IntegrationEvents` vão em `Shared/Contracts`, ver §7 abaixo), `Entities`, `Commands`, `Repository` (implementação concreta, singular), `Consumers`, `Services` ([`03-MODULES/RULES.md`](../03-MODULES/RULES.md) §2)
 - [ ] `GlobalUsings.cs` com os `using` comuns do módulo (`Infrastructure.Database`, `Shared.Kernel`, etc.)
 - [ ] `AssemblyInfo.cs` com `[assembly: InternalsVisibleTo(...)]` para `<NomeModulo>.UnitTests`, `<NomeModulo>.IntegrationTests` e `DynamicProxyGenAssembly2` (necessário para testar/mockar os tipos `internal` do módulo — ver §15)
 
@@ -73,9 +73,9 @@ parênteses (o "por quê") no `RULES.md` referenciado, não só o texto do item
 
 ## 4. Commands
 
-- [ ] Um `Command`/`Query` por caso de uso, `record` imutável
-- [ ] Nomenclatura: `<Verbo><Recurso>Command` / `<Verbo><Recurso>Query`
-- [ ] ([`COMMANDS/RULES.md`](../03-MODULES/COMMANDS/RULES.md))
+- [ ] Um `Command` por caso de uso (mutação ou leitura), `record` imutável
+- [ ] Nomenclatura: sufixo único `Command`, verbo em inglês `Create`/`Update`/`Get`/`Delete` (ou verbo de domínio em inglês) — nunca sufixo `Query`, nunca verbo em português
+- [ ] ([`COMMANDS/RULES.md`](../03-MODULES/COMMANDS/RULES.md) §4)
 
 ## 5. Repositories
 
@@ -87,7 +87,7 @@ parênteses (o "por quê") no `RULES.md` referenciado, não só o texto do item
 
 ## 6. Handlers
 
-- [ ] Um `Handler` por Aggregate Root/recurso, implementando `IHandler<TCommand,TResult>` uma vez por `Command`/`Query` aceito — nunca um `Handler` por `Command`/`Query` individual
+- [ ] Um `Handler` por Aggregate Root/recurso, implementando `IHandler<TCommand,TResult>` uma vez por `Command` aceito — nunca um `Handler` por `Command` individual
 - [ ] Segundo `Handler` só criado se o módulo expõe outro substantivo distinto sob o mesmo `Controller` (critério "banana vs. tomate" — `HANDLER/RULES.md` seção 4)
 - [ ] Retorno sempre `Task<Result<TDto>>`
 - [ ] Nunca instancia `IDbConnection`/`IDbTransaction` diretamente — só pede `IUnitOfWork` a `IUnitOfWorkFactory`
@@ -96,10 +96,12 @@ parênteses (o "por quê") no `RULES.md` referenciado, não só o texto do item
 
 ## 7. Contracts
 
+- [ ] `Requests` (em `Modules/<NomeModulo>/Contracts/Requests/`) só usados como parâmetro de ação do `Controller` — nunca aparecem no `Handler`/`Repository`; verbo do nome acompanha o `Command` (`CreatePedidoRequest` → `CreatePedidoCommand`)
 - [ ] `I<NomeModulo>` criado em `Modules/Shared/Contracts/I<NomeModulo>.cs` (não dentro do módulo) — expõe só o que outro módulo genuinamente precisa
-- [ ] `Dtos` (em `Modules/<NomeModulo>/Contracts/Dtos/`) imutáveis (`record`), sem nenhum campo do tipo `Entity`
+- [ ] `Dtos` (em `Modules/<NomeModulo>/Contracts/Dtos/`) imutáveis (`record`), sem nenhum campo do tipo `Entity` — é o `Dto` que serve de corpo de resposta HTTP, não existe uma classe `Response` separada
 - [ ] `IntegrationEvents` criados em `Modules/Shared/Contracts/IntegrationEvents/` (não dentro do módulo), herdando `IntegrationEvent` (de `Infrastructure/Messaging`), nome no particípio passado
-- [ ] ([`CONTRACTS/RULES.md`](../03-MODULES/CONTRACTS/RULES.md))
+- [ ] Nenhum sufixo de tipo todo maiúsculo (`DTO`, `REQUEST`, `ENTITY`) sem `[SuppressMessage]`/`// NOSONAR` justificado — sempre PascalCase (`Dto`, `Request`)
+- [ ] ([`CONTRACTS/RULES.md`](../03-MODULES/CONTRACTS/RULES.md) §1.2)
 
 ## 8. Controller
 

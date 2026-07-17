@@ -34,6 +34,7 @@ módulo passa a ter duas subpastas com propósitos diferentes:
 
 | Subpasta | Cruza a fronteira do módulo? | Motivo de estar em `Contracts/` |
 |---|---|---|
+| `Contracts/Requests/` | Sim, via HTTP (fora do processo) — mas só entrada, nunca sai do `Controller` para dentro | Seção 1.2 abaixo |
 | `Contracts/Dtos/` | Sim, via HTTP (fora do processo) | Seção 1 acima |
 | `Contracts/Repositories/` | **Não** — nenhum outro módulo o referencia | Só organização: centraliza toda interface/contrato do módulo (o que é "tipo que algo compila contra", mesmo que esse "algo" seja só o próprio módulo) num único lugar, em vez de espalhar uma pasta `Contracts/` própria dentro de `Repository/` |
 
@@ -42,6 +43,79 @@ outros módulos" — a pergunta certa continua sendo "existe `ProjectReference`
 de outro módulo para este?" (nunca existe, `CONTRACTS/RULES.md` seção 2), e
 "esse tipo específico é injetado fora do módulo?" (só `Dtos/` é, e mesmo
 assim só via serialização HTTP, nunca em código).
+
+### 1.2 Nomenclatura — `Request`, `Dto` (Response), `Entity`: cada um só no seu escopo ideal
+
+Quatro nomes aparecem o tempo todo nesta arquitetura e é fácil misturar o
+escopo de cada um. A regra é: cada um vive **só** onde a tabela abaixo diz,
+nunca aparece fora dali, e nunca é o mesmo tipo C# que outro.
+
+| Sufixo/nome | Onde vive | Papel | Nunca aparece em |
+|---|---|---|---|
+| `<Recurso>Request` | `Modules/<NomeModulo>/Contracts/Requests/` — parâmetro de ação do `Controller` (`[FromBody]`/query string) | Forma de **entrada** HTTP — o `Controller` traduz `Request` → `Command` (`COMMANDS/RULES.md`) | `Handler`, `Repository`, `Entity`, retorno de qualquer método — só existe como parâmetro de ação |
+| `<Recurso>Dto` | `Modules/<NomeModulo>/Contracts/Dtos/` — retorno do `Handler`, servido como corpo de resposta pelo `Controller` (`ToActionResult()`) | Forma de **saída** HTTP — "Response" é só como chamamos esse papel do `Dto` na borda; **não existe uma terceira classe `<Recurso>Response`** nesta arquitetura | `Repository` (retorna `Entity`), qualquer campo do tipo `Entity` |
+| `<Recurso>` (sem sufixo "Entity" no nome da classe, ex: `Pedido`) | `Modules/<NomeModulo>/Entities/` | Modelo de domínio — nome do substantivo puro, nunca `PedidoEntity` | `Contracts/` (nem `Requests/`, nem `Dtos/`), `Command`, corpo de resposta HTTP |
+
+- Endpoints de leitura simples (`GET` por rota/query string) normalmente
+  **não precisam de `Request`** — o `Controller` recebe o parâmetro
+  primitivo direto (`Get(Guid id)`, `CONTROLLER/RULES.md` seção 3) e monta
+  o `Command` com ele. `Request` só entra quando o corpo HTTP tem forma
+  própria a desserializar (`POST`/`PUT`/`PATCH`).
+- Verbo do nome do `Request` acompanha o verbo do `Command` que ele
+  alimenta (`COMMANDS/RULES.md` seção 4) — ex: `CreatePedidoRequest` →
+  `CreatePedidoCommand`, nunca um verbo diferente entre os dois.
+
+**❌ Errado — `Request` vazando pro Handler, `Entity` com sufixo redundante, sufixo todo maiúsculo:**
+
+```csharp
+public record CreatePedidoRequest(Guid ClienteId, List<ItemPedidoInput> Itens);
+
+public class PedidoEntity : AggregateRoot { /* ... */ } // ❌ sufixo "Entity" redundante — já mora em Entities/
+
+public class PedidoHandler
+{
+    // ❌ Handler recebendo Request direto — deveria receber CreatePedidoCommand
+    public async Task<Result<PedidoDTO>> Handle(CreatePedidoRequest request) // ❌ "DTO" todo maiúsculo
+    {
+        // ...
+    }
+}
+```
+
+**✅ Correto — cada nome só no seu escopo, Command como fronteira entre Request e Handler:**
+
+```csharp
+// Contracts/Requests/CreatePedidoRequest.cs — só existe como parâmetro de ação do Controller
+public record CreatePedidoRequest(Guid ClienteId, List<ItemPedidoInput> Itens);
+
+// Entities/Pedido.cs — nome do substantivo puro, sem sufixo
+public class Pedido : AggregateRoot { /* ... */ }
+
+// Handler/PedidoHandler.cs — recebe Command, nunca Request; devolve Dto, nunca DTO
+public class PedidoHandler
+{
+    public async Task<Result<PedidoDto>> Handle(CreatePedidoCommand command) { /* ... */ }
+}
+```
+
+**Nota sobre SonarQube (regra de nomenclatura de tipo, ex: `S101`):** o
+analisador rejeita nome de tipo terminando em sufixo **todo maiúsculo**
+(`PedidoDTO`, `CriarPedidoREQUEST`) — para o Sonar isso não é PascalCase
+válido. A convenção desta arquitetura já evita isso por padrão: sempre
+`Dto`, `Request`, `Entity` (primeira letra maiúscula, resto minúsculo),
+nunca `DTO`, `REQUEST`, `ENTITY`. Se um caso excepcional realmente exigir
+manter um sufixo todo maiúsculo (ex: interoperar com um contrato externo
+que já usa esse nome), suprimir explicitamente em vez de deixar o
+analisador falhar silenciosamente ignorado:
+
+```csharp
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S101:Types should be named in PascalCase")]
+public class PedidoDTO { } // exceção documentada, não o padrão
+```
+
+ou, fora do C#/quando o Sonar roda como scanner externo: comentário
+`// NOSONAR` na linha da declaração. Isso é exceção pontual e justificada
+— nunca a forma padrão de nomear `Dto`/`Request`/`Entity` neste rulebook.
 
 ## 2. Estrutura de pastas
 
@@ -54,6 +128,8 @@ Modules/
 │           └── <EventoNoPassado>Event.cs # ex: PedidoCriadoEvent.cs
 └── <NomeModulo>/
     ├── Contracts/
+    │   ├── Requests/
+    │   │   └── <Verbo><Recurso>Request.cs # ex: CreatePedidoRequest.cs — só parâmetro de ação (seção 1.2)
     │   ├── Dtos/
     │   │   └── <Recurso>Dto.cs          # ex: PedidoDto.cs — só usado pelo próprio Controller
     │   └── Repositories/

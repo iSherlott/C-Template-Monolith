@@ -32,7 +32,7 @@ tempo é mais barata que uma abstração errada.
 
 ## 4. Diferença entre `Service` e `Handler`
 
-- `Handler` é o ponto de entrada de **um** `Command`/`Query` específico — é chamado de fora do módulo (via `Controller`) ou traduzido de um evento (via `Consumer`).
+- `Handler` é o ponto de entrada de **um** `Command` específico (mutação ou leitura) — é chamado de fora do módulo (via `Controller`) ou traduzido de um evento (via `Consumer`).
 - `Service` é reutilizável **dentro** do módulo — não tem um único "dono" de chamada; qualquer `Handler`/`Consumer` do mesmo módulo pode usá-lo.
 - Um `Handler` pode chamar um `Service`; um `Service` nunca chama um `Handler` (evitaria ciclo de dependência e confusão sobre quem orquestra o quê).
 
@@ -45,7 +45,7 @@ internal class CalculadoraDeFreteService
 
     public async Task<decimal> CalcularAsync(Guid pedidoId)
     {
-        var pedido = await _pedidoHandler.Handle(new ObterPedidoPorIdQuery(pedidoId));
+        var pedido = await _pedidoHandler.Handle(new GetPedidoByIdCommand(pedidoId));
         // ...
     }
 }

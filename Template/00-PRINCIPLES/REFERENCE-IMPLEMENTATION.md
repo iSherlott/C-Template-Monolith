@@ -50,12 +50,12 @@ mesmo padrão.
 | `Modules/<N>/<N>.csproj` | `Modules/Pessoas/Pessoas.csproj` |
 | `Modules/<N>/<N>ModuleInstaller.cs` | `Modules/Pessoas/PessoasModuleInstaller.cs` |
 | `Modules/<N>/Controller/` | `Modules/Pessoas/Controller/PessoasController.cs` |
-| `Modules/<N>/Handler/` | `Modules/Pessoas/Handler/PessoaHandler.cs` — exemplo de Handler consolidado cobrindo `CriarPessoaCommand` + `ObterPessoaPorIdQuery` na mesma classe; `Modules/Catalogo/Handler/{GeneroHandler,AnimeHandler}.cs` é o exemplo real do critério "banana vs. tomate" (`HANDLER/RULES.md` §4) — dois Handlers no mesmo módulo porque `CatalogoController` expõe dois substantivos distintos |
+| `Modules/<N>/Handler/` | `Modules/Pessoas/Handler/PessoaHandler.cs` — exemplo de Handler consolidado cobrindo dois `Command`s na mesma classe (ver nota de nomenclatura abaixo); `Modules/Catalogo/Handler/{GeneroHandler,AnimeHandler}.cs` é o exemplo real do critério "banana vs. tomate" (`HANDLER/RULES.md` §4) — dois Handlers no mesmo módulo porque `CatalogoController` expõe dois substantivos distintos |
 | `Modules/<N>/Contracts/Dtos/` | `Modules/Pessoas/Contracts/Dtos/PessoaDto.cs` |
 | `Modules/<N>/Contracts/Repositories/I<N>Repository.cs` | `Modules/Pessoas/Contracts/Repositories/IPessoaRepository.cs` |
 | `Modules/<N>/Repository/<N>Repository.cs` | `Modules/Pessoas/Repository/PessoaRepository.cs` |
 | `Modules/<N>/Entities/` | `Modules/Pessoas/Entities/Pessoa.cs` |
-| `Modules/<N>/Commands/` | `Modules/Pessoas/Commands/{CriarPessoaCommand,ObterPessoaPorIdQuery}.cs` |
+| `Modules/<N>/Commands/` | `Modules/Pessoas/Commands/{CriarPessoaCommand,ObterPessoaPorIdQuery}.cs` — nomenclatura pré-`2026-07-19` (ver nota abaixo) |
 | `Modules/<N>/Consumers/` | `Modules/Match/Consumers/ProgressoAtualizadoConsumer.cs` (único módulo com `Consumer` real no `AnimeList`) |
 | `Modules/<N>/Services/` | `Modules/Pessoas/Services/PessoasModuleFacade.cs` |
 | `Modules/<N>/Dictionary/<N>Dictionary.cs` + `.resx` | `Modules/Pessoas/Dictionary/PessoasDictionary.cs` + `.resx` |
@@ -71,6 +71,19 @@ mesmo padrão.
 os cria). Isso não é uma divergência — é o próprio `DATABASE/RULES.md`
 definindo o nome específico para essa camada; `NODE-MAP.md` generaliza
 porque `Cache`/`Messaging` usam `Implementation/` como nome literal.
+
+**Nota sobre nomenclatura de `Command`/`Query` — `AnimeList` reflete a
+convenção anterior a `2026-07-19`:** `COMMANDS/RULES.md` §4 mudou para
+sufixo único `Command` com verbo em inglês (`Create`/`Update`/`Get`/`Delete`)
+— decisão tomada **só no Template**, sem re-executar o refactor no código
+real do `AnimeList`. Por isso este arquivo continua listando
+`CriarPessoaCommand`/`ObterPessoaPorIdQuery` (sufixo `Query`, verbo em
+português) como exemplo real — isso **não é um anti-padrão a corrigir**,
+é a versão anterior da convenção, ainda válida e testada. Um projeto novo
+segue a convenção atual (`GetPessoaByIdCommand`, não `ObterPessoaPorIdQuery`);
+o `AnimeList` só seria migrado se, no futuro, alguém decidir explicitamente
+fechar essa divergência (mesmo processo do gap de Integration test da
+seção 3 — pedido explícito do dev, não silencioso).
 
 ## 3. Gap de Integration test de Messaging/Cache — fechado em `2026-07-19`
 
