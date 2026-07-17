@@ -139,6 +139,23 @@ public static string GeneroInvalido(string generoId) =>
 
 ## 6. Onde é consumido
 
+**❌ Errado — texto literal espalhado pelo código:**
+
+```csharp
+// Handler
+if (command.Itens.Count == 0)
+    return Result<PedidoDto>.Failure(Error.Validation("Pedido precisa ter ao menos um item.")); // ❌
+
+// Entity
+if (Status != StatusPedido.Aberto)
+    throw new DomainException("Não é possível adicionar item a um pedido que não está aberto."); // ❌
+
+// pior ainda — concatenação manual de valor dinâmico
+throw new DomainException("Gênero '" + generoId + "' não existe."); // ❌ quebra em outro idioma
+```
+
+**✅ Correto — sempre via `<NomeModulo>Dictionary`:**
+
 ```csharp
 // Handler
 if (command.Itens.Count == 0)
@@ -147,6 +164,9 @@ if (command.Itens.Count == 0)
 // Entity
 if (Status != StatusPedido.Aberto)
     throw new DomainException(PedidoDictionary.PedidoJaCancelado);
+
+// valor dinâmico via placeholder, nunca concatenação (seção 4-5)
+throw new DomainException(CatalogoDictionary.GeneroInvalido(generoId));
 ```
 
 - `Handler` (`HANDLER/RULES.md`) e `Entity` (`ENTITIES/RULES.md`) são os

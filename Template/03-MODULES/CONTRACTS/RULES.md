@@ -82,6 +82,24 @@ public interface IVendasModule
 
 - Expõe só o que outro módulo genuinamente precisa consumir de forma síncrona — não é um espelho de todos os `Handlers` do módulo. Se nenhum outro módulo precisa de uma operação, ela não entra aqui, mesmo que exista um `Handler` equivalente para uso via `Controller`.
 - Assinatura de método nunca retorna `Entity` — sempre tipo primitivo, coleção de primitivo, ou `bool`/`void`. (Não retorna `Dto` do módulo publicador — `Dto` fica no próprio módulo, seção 1; se um método de fachada precisar devolver algo estruturado, o tipo de retorno também é definido aqui em `Shared/Contracts`, não importado do módulo.)
+
+**❌ Errado:**
+
+```csharp
+public interface IVendasModule
+{
+    Task<Pedido> ObterPedidoAsync(Guid clienteId); // ❌ Entity de domínio cruzando módulo
+}
+```
+
+**✅ Correto:**
+
+```csharp
+public interface IVendasModule
+{
+    Task<bool> ClienteTemPedidoAbertoAsync(Guid clienteId); // ✅ primitivo, resposta mínima que o consumidor precisa
+}
+```
 - **Quem implementa:** uma classe concreta dentro de `Services/` do módulo publicador (ex: `Services/VendasModuleFacade.cs`, ver `SERVICES/RULES.md`), registrada no `Install()` do `<NomeModulo>ModuleInstaller` como a implementação de `I<NomeModulo>`. Essa classe concreta é `internal` (`ARCHITECTURE-RULES.md` seção 5.1) — só a interface, pública e em `Shared`, é visível para quem consome.
 - Um módulo consumidor **nunca** referencia a classe concreta (nem conseguiria — está em `internal` num assembly que ele nem referencia) — só injeta `I<NomeModulo>`.
 
@@ -91,6 +109,28 @@ public interface IVendasModule
 - Sempre `record` imutável (nunca classe com setters públicos). Ex: `public record PedidoDto(Guid Id, Guid ClienteId, decimal Total, string Status);`
 - Nunca contém um campo do tipo `Entity` de domínio.
 - Convenção de mapeamento: método `FromEntity(Entity entity)` na própria classe do `Dto`, chamado pelo `Handler` (`HANDLER/RULES.md` seção 8) — pode ser `internal` (só o `Handler` do próprio módulo chama), enquanto o `Dto` em si continua `public` (é serializado como resposta HTTP). O `Dto` nunca faz o caminho inverso (não tem `ToEntity()`).
+
+**❌ Errado — `Dto` embrulhando a `Entity` em vez de espelhar os campos:**
+
+```csharp
+public record PedidoDto(Pedido Pedido); // ❌ serializa o modelo de domínio inteiro pra fora
+
+public class PedidoDtoMutavel // ❌ classe, não record — permite setter público
+{
+    public Guid Id { get; set; }
+    public decimal Total { get; set; }
+}
+```
+
+**✅ Correto — campos primitivos espelhados, `record` imutável, mapeamento explícito:**
+
+```csharp
+public record PedidoDto(Guid Id, Guid ClienteId, decimal Total, string Status)
+{
+    internal static PedidoDto FromEntity(Pedido pedido) =>
+        new(pedido.Id, pedido.ClienteId, pedido.Total, pedido.Status.ToString());
+}
+```
 
 ## 5. `IntegrationEvents` — o que é publicado
 

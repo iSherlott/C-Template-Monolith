@@ -30,6 +30,36 @@ Modules/<NomeModulo>/
 comportamento nomeado com verbo de domínio; estado só muda através desses
 métodos.
 
+**❌ Errado — modelo anêmico, regra de negócio vazou para o `Handler`:**
+
+```csharp
+public class Pedido // ❌ setters públicos, sem invariante própria
+{
+    public Guid Id { get; set; }
+    public Guid ClienteId { get; set; }
+    public decimal Total { get; set; }
+    public StatusPedido Status { get; set; }
+    public List<ItemDoPedido> Itens { get; set; } = new();
+}
+
+// dentro do Handler — ❌ regra de domínio ("pedido aberto pode receber item") duplicada
+// em todo lugar que precisa adicionar um item, sem nenhuma garantia de que
+// alguém vai lembrar de repetir a checagem
+public async Task<Result<PedidoDto>> Handle(AdicionarItemCommand command)
+{
+    var pedido = await _pedidoRepository.ObterPorIdAsync(command.PedidoId);
+    if (pedido!.Status != StatusPedido.Aberto)
+        return Result<PedidoDto>.Failure(Error.Conflict("Pedido não está aberto."));
+
+    pedido.Itens.Add(item);       // ❌ ninguém garante que Total foi recalculado
+    pedido.Total += item.Subtotal; // ❌ fácil esquecer, ou fazer em ordem errada
+    await _pedidoRepository.AtualizarAsync(pedido, unitOfWork);
+    return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
+}
+```
+
+**✅ Correto — a `Entity` protege o próprio invariante, o `Handler` só orquestra:**
+
 ```csharp
 public class Pedido : AggregateRoot // base definida em Shared/Kernel — SHARED/RULES.md
 {

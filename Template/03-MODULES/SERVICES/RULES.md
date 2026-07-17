@@ -36,6 +36,32 @@ tempo é mais barata que uma abstração errada.
 - `Service` é reutilizável **dentro** do módulo — não tem um único "dono" de chamada; qualquer `Handler`/`Consumer` do mesmo módulo pode usá-lo.
 - Um `Handler` pode chamar um `Service`; um `Service` nunca chama um `Handler` (evitaria ciclo de dependência e confusão sobre quem orquestra o quê).
 
+**❌ Errado — `Service` invertendo a direção de orquestração:**
+
+```csharp
+internal class CalculadoraDeFreteService
+{
+    private readonly PedidoHandler _pedidoHandler; // ❌ Service chamando Handler
+
+    public async Task<decimal> CalcularAsync(Guid pedidoId)
+    {
+        var pedido = await _pedidoHandler.Handle(new ObterPedidoPorIdQuery(pedidoId));
+        // ...
+    }
+}
+```
+
+**✅ Correto — `Service` recebe o que precisa como parâmetro, ou usa `Repository` diretamente:**
+
+```csharp
+internal class CalculadoraDeFreteService
+{
+    private readonly IPedidoRepository _pedidoRepository; // ✅ mesma camada, nunca "sobe" para o Handler
+
+    public decimal Calcular(Pedido pedido) => /* regra de cálculo */;
+}
+```
+
 ## 5. `<NomeModulo>ModuleFacade` — a implementação de `I<NomeModulo>`
 
 ```csharp

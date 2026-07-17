@@ -201,6 +201,51 @@ public class GlobalExceptionMiddleware
   tratamento correto é `500`, não um `4xx` mascarando um bug como se fosse
   entrada inválida do cliente.
 
+### 6.1 Os três mecanismos de erro desta arquitetura — nunca confundir
+
+| Mecanismo | Onde acontece | Significa | Status HTTP |
+|---|---|---|---|
+| `Result<T>.Failure(Error)` | Dentro de um `Handler` | Falha de negócio **esperada** (validação, não encontrado, conflito) | `400`/`404`/`409` via `ToActionResult()` (`CONTROLLER/RULES.md` §5) |
+| `DomainException` | Dentro de uma `Entity` | Invariante violado — **sempre bug**, nunca condição esperada | `500`, sempre |
+| `AppException` (`NotFoundException`, etc.) | Fora de um `Handler` (middleware, pipeline) | Condição HTTP conhecida que acontece antes de qualquer `Handler` rodar | O `StatusCode` da própria subclasse |
+
+**❌ Errado — lançando exceção para uma falha de negócio esperada dentro do `Handler`:**
+
+```csharp
+public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+{
+    var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+    if (pedido is null)
+        throw new NotFoundException("Pedido não encontrado."); // ❌ isso é Result.Failure, não AppException
+
+    return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
+}
+```
+
+Por que é errado mesmo "funcionando" (o middleware pegaria e devolveria
+`404`): usar `AppException` aqui reabre exatamente a indireção que
+`Result<T>` existe para evitar dentro de um `Handler` — sinalização de fluxo
+por exceção em vez de valor de retorno, custo de stack trace para um caso
+absolutamente esperado, e uma segunda forma de fazer a mesma coisa que
+`Result.Failure(Error.NotFound(...))` já faz (`HANDLER/RULES.md` §7).
+
+**✅ Correto:**
+
+```csharp
+public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+{
+    var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+    if (pedido is null)
+        return Result<PedidoDto>.Failure(Error.NotFound(PedidoDictionary.PedidoNaoEncontrado));
+
+    return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
+}
+```
+
+`AppException` só aparece em código que roda **fora** do fluxo de um
+`Handler` — ex: um middleware/filtro customizado validando algo antes da
+requisição sequer chegar ao `Controller`.
+
 ## 7. Grupos de acesso por Controller — Policy-based authorization
 
 **Decisão:** cada `Controller` (ou ação individual, quando o `Controller`
@@ -311,6 +356,7 @@ app.Run();
 | `Handler` capturando exceção de infraestrutura pra virar resposta HTTP manualmente | É o que `GlobalExceptionMiddleware` já faz — duplicação, ver `HANDLER/RULES.md` seção 7 |
 | Chave secreta do JWT versionada em `appsettings.json` | Mesma regra de qualquer segredo (`01-HOST/RULES.md` seção 4) |
 | `DomainException` tratada como `401`/`403`/`404` no middleware | `DomainException` é sempre bug (`500`) — só `AppException` (seção 6) tem status HTTP próprio |
+| `throw new AppException(...)`/`NotFoundException` dentro de um `Handler` para falha de negócio esperada | Isso é `Result<T>.Failure(Error)` — `AppException` é só para código fora do fluxo de `Handler` (seção 6.1) |
 
 ## 10. Enforcement
 

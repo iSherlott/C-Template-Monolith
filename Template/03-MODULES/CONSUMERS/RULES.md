@@ -97,6 +97,35 @@ using var scope = _scopeFactory.CreateScope();
 var repository = scope.ServiceProvider.GetRequiredService<IAlgumRepository>();
 ```
 
+**❌ Errado — `Repository` (`Scoped`) injetado direto no construtor do `Consumer` (`Singleton`):**
+
+```csharp
+internal class PedidoCriadoConsumer : RabbitMqConsumerBase<PedidoCriadoEvent>
+{
+    private readonly IEstoqueRepository _estoqueRepository; // ❌ Scoped preso num Singleton pra sempre
+
+    public PedidoCriadoConsumer(IUnitOfWorkFactory unitOfWorkFactory, IEstoqueRepository estoqueRepository)
+        : base("estoque.pedido-criado", "estoque", unitOfWorkFactory)
+    {
+        _estoqueRepository = estoqueRepository; // ❌ falha na validação de escopo do ASP.NET Core, ou pior, "funciona" com uma única instância vazando entre mensagens
+    }
+}
+```
+
+**✅ Correto — `IServiceScopeFactory` no construtor, escopo novo por mensagem (exemplo completo já na seção 3):**
+
+```csharp
+public PedidoCriadoConsumer(IUnitOfWorkFactory unitOfWorkFactory, IServiceScopeFactory scopeFactory)
+    : base("estoque.pedido-criado", "estoque", unitOfWorkFactory) => _scopeFactory = scopeFactory;
+
+protected override async Task HandleAsync(PedidoCriadoEvent @event, IUnitOfWork unitOfWork)
+{
+    using var scope = _scopeFactory.CreateScope();
+    var estoqueRepository = scope.ServiceProvider.GetRequiredService<IEstoqueRepository>();
+    // ...
+}
+```
+
 ## 4. Consumer é fino — delega para Handler ou Service
 
 Mesma filosofia do `Controller` (`CONTROLLER/RULES.md`): `Consumer` traduz,

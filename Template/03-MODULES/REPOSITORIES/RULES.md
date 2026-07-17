@@ -133,6 +133,51 @@ disponível). Toda validação de invariante já aconteceu dentro da `Entity`
 antes dela chegar ao `Repository` para ser persistida — o `Repository` confia
 que, se recebeu uma `Entity`, ela já está em estado válido.
 
+## 6.1 Nunca genérico — um `Repository` por Aggregate Root, SQL explícito
+
+**❌ Errado — repositório genérico reutilizável (padrão comum em ORMs tipo
+EF Core `DbSet<T>`, Dapper.Contrib `Insert<T>`, Spring Data `JpaRepository<T,ID>`):**
+
+```csharp
+public interface IRepositoryBase<T> where T : class
+{
+    Task<T?> GetByIdAsync(Guid id);
+    Task InsertAsync(T entity);
+    Task UpdateAsync(T entity);
+    Task DeleteAsync(Guid id);
+}
+
+public class RepositoryBase<T> : IRepositoryBase<T> where T : class
+{
+    // implementação genérica com reflection/convenção de nome de tabela — ❌ proibida
+}
+
+public interface IPedidoRepository : IRepositoryBase<Pedido> { } // ❌ herda CRUD genérico
+```
+
+Por que isso é proibido mesmo parecendo produtivo: esconde o SQL real gerado,
+impede otimizar uma query específica sem quebrar o contrato genérico, e
+convida a acessar qualquer tabela por conveniência — exatamente o oposto do
+isolamento por Aggregate Root que esta arquitetura exige (seção 2 acima).
+
+**✅ Correto — interface explícita por Aggregate Root, cada método é uma
+operação de negócio nomeada, com SQL visível na implementação (seção 3):**
+
+```csharp
+public interface IPedidoRepository
+{
+    Task InserirAsync(Pedido pedido, IUnitOfWork unitOfWork);
+    Task AtualizarAsync(Pedido pedido, IUnitOfWork unitOfWork);
+    Task<Pedido?> ObterPorIdAsync(Guid id);
+    Task<bool> ExisteAsync(Guid id);
+}
+```
+
+Se dois módulos parecem precisar do "mesmo CRUD genérico", a semelhança é
+superficial — cada um continua com sua própria interface, mesmo que os
+métodos tenham nomes parecidos. Duplicar uma assinatura de 4 métodos é mais
+barato que reintroduzir um `Repository<T>` genérico pela porta dos fundos.
+
 ## 7. Anti-padrões — o que nunca pode aparecer aqui
 
 | Anti-padrão | Por quê é proibido |

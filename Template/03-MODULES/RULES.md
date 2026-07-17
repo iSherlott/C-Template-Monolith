@@ -140,6 +140,41 @@ para funcionar:
 - [ ] Health check específico do módulo, se houver
 - [ ] Leitura da própria seção de configuração (`Modules:<NomeModulo>`), nunca de outra seção
 
+**❌ Errado — sem construtor parameterless, `internal`, sem retornar `services`:**
+
+```csharp
+internal class VendasModuleInstaller : IModuleInstaller // ❌ precisa ser public
+{
+    private readonly ILogger _logger;
+    public VendasModuleInstaller(ILogger logger) => _logger = logger; // ❌ Activator.CreateInstance exige parameterless
+
+    public IServiceCollection Install(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<PedidoHandler>();
+        // ❌ esqueceu de retornar services, esqueceu de registrar Repository/Controller/Consumer
+    }
+}
+```
+
+**✅ Correto:**
+
+```csharp
+public class VendasModuleInstaller : IModuleInstaller // ✅ public, construtor parameterless
+{
+    public IServiceCollection Install(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<PedidoHandler>();
+        services.AddScoped<IPedidoRepository, PedidoRepository>();
+        services.AddScoped<IVendasModule, VendasModuleFacade>();
+        services.AddHostedService<PedidoCriadoConsumer>();
+        services.AddControllers().AddApplicationPart(typeof(VendasModuleInstaller).Assembly);
+        return services; // ✅ sempre retorna services
+    }
+
+    public void Use(IApplicationBuilder app) { }
+}
+```
+
 A classe `<NomeModulo>ModuleInstaller` precisa ser `public` com **construtor
 parameterless** — o Host a instancia via `Activator.CreateInstance`
 (`01-HOST/RULES.md` seção 3); sem isso, o módulo é descoberto mas falha ao

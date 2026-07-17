@@ -21,6 +21,19 @@ Modules/<NomeModulo>/
 
 ## 3. Forma — record imutável, sem comportamento
 
+**❌ Errado:**
+
+```csharp
+public class CriarPedidoCommand // ❌ classe mutável, não record
+{
+    public Guid ClienteId { get; set; }             // ❌ setter público
+    public Pedido? PedidoExistente { get; set; }     // ❌ Entity vazando pro Command
+    public decimal CalcularTotal() => /* ... */;     // ❌ lógica de negócio dentro do Command
+}
+```
+
+**✅ Correto:**
+
 ```csharp
 public record CriarPedidoCommand(Guid ClienteId, IReadOnlyList<ItemPedidoInput> Itens);
 

@@ -207,6 +207,39 @@ interface nunca exige `ProjectReference` de um módulo de negócio para outro.
 - **Falha inesperada** — erro de infraestrutura (banco fora do ar, exceção de bug) **não é capturada e empacotada como `Result.Failure` dentro do Handler**. Ela simplesmente propaga (`throw`), e é responsabilidade do `GlobalExceptionMiddleware` (`02-INFRASTRUCTURE/SECURITY/RULES.md` seção 6) transformar isso em `500`.
 - Regra prática: se o `Handler` está escrevendo um `try/catch` para converter uma exceção de infraestrutura em `Result.Failure(Error.Unexpected(...))`, questionar se isso não deveria simplesmente propagar. Captura manual só se houver uma ação de recuperação real (ex: um retry pontual), não só para "não deixar exceção subir".
 
+**❌ Errado:**
+
+```csharp
+public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+{
+    try
+    {
+        var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+        if (pedido is null)
+            throw new Exception("Pedido não encontrado"); // ❌ falha esperada não deveria ser exceção
+        return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
+    }
+    catch (Exception ex) // ❌ engole erro de infra (ex: timeout de conexão) e some com o stack trace real
+    {
+        return Result<PedidoDto>.Failure(Error.Unexpected(ex.Message));
+    }
+}
+```
+
+**✅ Correto:**
+
+```csharp
+public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+{
+    var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+    if (pedido is null)
+        return Result<PedidoDto>.Failure(Error.NotFound(PedidoDictionary.PedidoNaoEncontrado));
+
+    return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
+    // erro de infra (conexão caiu, etc.) propaga sozinho — GlobalExceptionMiddleware vira 500
+}
+```
+
 ## 8. Mapeamento Entity → Dto
 
 `Handler` é o único lugar que conhece tanto a `Entity` (privada) quanto o
@@ -214,6 +247,31 @@ interface nunca exige `ProjectReference` de um módulo de negócio para outro.
 `Repository` (que deveria poder retornar `Entity` pura) nem no `Controller`
 (que nunca deveria ver `Entity`). Convenção: método estático `Dto.FromEntity(entity)`
 vivendo na própria classe do `Dto`.
+
+**❌ Errado — Handler devolvendo a Entity direto:**
+
+```csharp
+public interface IHandler<in TCommand, TResult> { /* ... */ }
+
+public class PedidoHandler : IHandler<ObterPedidoPorIdQuery, Pedido> // ❌ TResult é a Entity
+{
+    public async Task<Result<Pedido>> Handle(ObterPedidoPorIdQuery query) =>
+        Result<Pedido>.Success(await _pedidoRepository.ObterPorIdAsync(query.PedidoId)); // ❌ vaza modelo interno
+}
+```
+
+**✅ Correto — Handler sempre devolve `Dto`:**
+
+```csharp
+public class PedidoHandler : IHandler<ObterPedidoPorIdQuery, PedidoDto>
+{
+    public async Task<Result<PedidoDto>> Handle(ObterPedidoPorIdQuery query)
+    {
+        var pedido = await _pedidoRepository.ObterPorIdAsync(query.PedidoId);
+        return Result<PedidoDto>.Success(PedidoDto.FromEntity(pedido));
+    }
+}
+```
 
 ## 9. Anti-padrões — o que nunca pode aparecer aqui
 
