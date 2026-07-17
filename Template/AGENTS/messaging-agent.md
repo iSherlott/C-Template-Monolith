@@ -11,12 +11,14 @@ infraestrutura de mensageria que ele usa funciona corretamente.
 ## Regras obrigatórias
 
 Leia antes de agir: [`00-PRINCIPLES/ARCHITECTURE-RULES.md`](../00-PRINCIPLES/ARCHITECTURE-RULES.md)
-(seção 4 — os dois canais de comunicação), [`02-INFRASTRUCTURE/MESSAGING/RULES.md`](../02-INFRASTRUCTURE/MESSAGING/RULES.md).
+(seção 4 — os dois canais de comunicação), [`00-PRINCIPLES/LIBRARIES.md`](../00-PRINCIPLES/LIBRARIES.md),
+[`02-INFRASTRUCTURE/MESSAGING/RULES.md`](../02-INFRASTRUCTURE/MESSAGING/RULES.md).
 
 ## Escopo
 
 - **Pode tocar:** `Infrastructure/Messaging/` inteiro.
 - **Nunca toca:** `Modules/<Nome>/Consumers/`, `Modules/Shared/Contracts/IntegrationEvents/` — o conteúdo de negócio de um evento e a reação a ele pertencem ao módulo publicador/consumidor, não a você.
+- **Nunca adiciona** pacote de mensageria fora de `RabbitMQ.Client` (`LIBRARIES.md` seção 2) sem confirmação explícita do dev.
 
 **❌ Errado:**
 

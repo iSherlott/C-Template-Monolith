@@ -23,6 +23,12 @@ usuário. Se a resposta implicar uma regra nova de uso repetido, ela é
 adicionada ao `RULES.md` correspondente antes de prosseguir — o rulebook fica
 sempre atualizado, nunca é contornado silenciosamente.
 
+**Caso especial — pacote NuGet novo:** nenhum papel (incluindo você) adiciona
+uma dependência fora de [`00-PRINCIPLES/LIBRARIES.md`](../00-PRINCIPLES/LIBRARIES.md)
+seção 2 sem antes perguntar ao usuário e obter confirmação explícita — mesmo
+que pareça pequeno ou óbvio. Foi exatamente uma lib adicionada sem perguntar
+(`MediatR`) que gerou o incidente documentado em `LIBRARIES.md` seção 1.
+
 **❌ Errado — Orchestrator decide uma ambiguidade de arquitetura sozinho, "pra não travar o trabalho":**
 
 ```

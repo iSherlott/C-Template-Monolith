@@ -10,12 +10,14 @@ disponível e correta.
 
 ## Regras obrigatórias
 
-Leia antes de agir: [`02-INFRASTRUCTURE/CACHE/RULES.md`](../02-INFRASTRUCTURE/CACHE/RULES.md).
+Leia antes de agir: [`00-PRINCIPLES/LIBRARIES.md`](../00-PRINCIPLES/LIBRARIES.md),
+[`02-INFRASTRUCTURE/CACHE/RULES.md`](../02-INFRASTRUCTURE/CACHE/RULES.md).
 
 ## Escopo
 
 - **Pode tocar:** `Infrastructure/Cache/` inteiro.
 - **Nunca toca:** código de módulo — nem decide chaves, nem TTLs, nem quando invalidar.
+- **Nunca adiciona** pacote de cache fora de `StackExchange.Redis` (`LIBRARIES.md` seção 2) sem confirmação explícita do dev.
 
 **❌ Errado:**
 

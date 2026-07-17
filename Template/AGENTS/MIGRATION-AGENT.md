@@ -16,8 +16,12 @@ regra de negócio "de cabeça" a menos que o cenário B (seção 2) exija tradu�
 de linguagem.
 
 Leitura obrigatória antes de começar, nesta ordem: `NODE-MAP.md` (mapa
-completo) → `ARCHITECTURE-RULES.md` (regras globais) → o `RULES.md`
-específico de cada nó que você for tocar.
+completo) → `ARCHITECTURE-RULES.md` (regras globais) → `LIBRARIES.md`
+(pacotes já aprovados — seção 4 detalha o risco específico de migração
+trazer junto a lib da stack de origem) → `REFERENCE-IMPLEMENTATION.md`
+(exemplo real validado, arquivo por arquivo, para comparar contra o que
+você está portando) → o `RULES.md` específico de cada nó que você for
+tocar.
 
 Existem dois cenários. Identifique qual se aplica antes de agir — o
 processo é diferente.

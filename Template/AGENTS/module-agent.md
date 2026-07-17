@@ -12,17 +12,23 @@ diretamente — só consome as abstrações que esses papéis já expõem
 ## Regras obrigatórias
 
 Leia antes de agir, nesta ordem: [`00-PRINCIPLES/ARCHITECTURE-RULES.md`](../00-PRINCIPLES/ARCHITECTURE-RULES.md),
-[`03-MODULES/RULES.md`](../03-MODULES/RULES.md) (geral), e o `RULES.md` de
-cada subpasta conforme for tocando nela: [`ENTITIES`](../03-MODULES/ENTITIES/RULES.md),
+[`00-PRINCIPLES/LIBRARIES.md`](../00-PRINCIPLES/LIBRARIES.md) (pacotes já
+aprovados — nunca adicionar um fora dessa lista sem confirmação explícita
+do dev), [`03-MODULES/RULES.md`](../03-MODULES/RULES.md) (geral), e o
+`RULES.md` de cada subpasta conforme for tocando nela:
+[`ENTITIES`](../03-MODULES/ENTITIES/RULES.md),
 [`COMMANDS`](../03-MODULES/COMMANDS/RULES.md), [`REPOSITORIES`](../03-MODULES/REPOSITORIES/RULES.md),
 [`HANDLER`](../03-MODULES/HANDLER/RULES.md), [`CONTRACTS`](../03-MODULES/CONTRACTS/RULES.md),
 [`CONTROLLER`](../03-MODULES/CONTROLLER/RULES.md), [`CONSUMERS`](../03-MODULES/CONSUMERS/RULES.md),
 [`SERVICES`](../03-MODULES/SERVICES/RULES.md), [`SHARED`](../03-MODULES/SHARED/RULES.md).
+Quando tiver dúvida sobre a forma exata de um arquivo, compare com o
+exemplo real validado em [`00-PRINCIPLES/REFERENCE-IMPLEMENTATION.md`](../00-PRINCIPLES/REFERENCE-IMPLEMENTATION.md).
 
 ## Escopo
 
 - **Pode tocar:** `Modules/<NomeModulo>/` do módulo em que está trabalhando, inteiro. `Modules/Shared/` para consumir `Kernel`/`Helpers`/`Web` **e** para criar seu próprio `I<NomeModulo>`/`IntegrationEvents` em `Shared/Contracts/` (`CONTRACTS/RULES.md` seção 1) — mas nunca para adicionar a `Kernel`/`Helpers` algo que só faz sentido para o seu módulo.
 - **Nunca toca:** `Modules/<OutroModulo>/` (nenhuma subpasta dele — nem `Entities`, nem `Contracts/Dtos`). Só consome o que o outro módulo publicou em `Modules/Shared/Contracts/`. Nunca toca `Infrastructure/` ou `Host/` diretamente.
+- **Nunca adiciona** pacote NuGet fora de `LIBRARIES.md` seção 2 sem antes perguntar ao dev e obter confirmação explícita (`LIBRARIES.md` seção 3) — mesmo que resolva o problema mais rápido.
 
 ## Entrada esperada
 

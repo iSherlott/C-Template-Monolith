@@ -16,9 +16,11 @@ Ordem de leitura obrigatória antes de qualquer trabalho:
 
 1. **[`00-PRINCIPLES/ARCHITECTURE-RULES.md`](00-PRINCIPLES/ARCHITECTURE-RULES.md)** — sempre primeiro. Define as regras globais que todas as outras camadas herdam.
 2. **[`00-PRINCIPLES/NODE-MAP.md`](00-PRINCIPLES/NODE-MAP.md)** — catálogo rápido de todo nó (arquivo/pasta) desta arquitetura, grafo de dependência, e métricas objetivas para conferir se um projeto real bate com o rulebook. Ponto de entrada recomendado para qualquer IA antes de tocar em um projeto real — mais rápido que ler os 20 `RULES.md` individuais.
-3. O `RULES.md` da camada específica que você vai tocar (`01-HOST`, `02-INFRASTRUCTURE/...`, `03-MODULES/...`, `04-TEST/...`).
-4. O arquivo do papel correspondente em `AGENTS/`, se você estiver atuando como um papel especializado (ex: construindo só a camada de Database, adote `AGENTS/database-agent.md`).
-5. O checklist relevante em `CHECKLISTS/`, se a tarefa for criar algo novo do zero (ex: um módulo novo).
+3. **[`00-PRINCIPLES/LIBRARIES.md`](00-PRINCIPLES/LIBRARIES.md)** — pacotes NuGet já aprovados e o processo obrigatório antes de adicionar qualquer um novo (confirmação explícita do dev — nunca silencioso).
+4. **[`00-PRINCIPLES/REFERENCE-IMPLEMENTATION.md`](00-PRINCIPLES/REFERENCE-IMPLEMENTATION.md)** — mapeia cada nó do `NODE-MAP.md` para o arquivo real correspondente no `AnimeList` (implementação de referência validada com build + testes), para comparar estrutura física lado a lado independente do domínio do projeto novo.
+5. O `RULES.md` da camada específica que você vai tocar (`01-HOST`, `02-INFRASTRUCTURE/...`, `03-MODULES/...`, `04-TEST/...`).
+6. O arquivo do papel correspondente em `AGENTS/`, se você estiver atuando como um papel especializado (ex: construindo só a camada de Database, adote `AGENTS/database-agent.md`).
+7. O checklist relevante em `CHECKLISTS/`, se a tarefa for criar algo novo do zero (ex: um módulo novo).
 
 Nenhuma regra de camada específica pode contradizer `ARCHITECTURE-RULES.md`. Se
 parecer necessário, a mudança é na regra global primeiro, com decisão
@@ -43,7 +45,9 @@ Template/
 ├── README.md                        # este arquivo — índice mestre
 ├── 00-PRINCIPLES/
 │   ├── ARCHITECTURE-RULES.md        # ✅ regras globais (dependência, isolamento, comunicação)
-│   └── NODE-MAP.md                  # ✅ catálogo de nós, grafo de dependência, métricas de sanidade
+│   ├── NODE-MAP.md                  # ✅ catálogo de nós, grafo de dependência, métricas de sanidade
+│   ├── LIBRARIES.md                 # ✅ pacotes NuGet aprovados + processo de confirmação p/ novo pacote
+│   └── REFERENCE-IMPLEMENTATION.md  # ✅ nó → arquivo real validado no AnimeList
 ├── 01-HOST/
 │   └── RULES.md                     # ✅ criado
 ├── 02-INFRASTRUCTURE/
@@ -124,6 +128,9 @@ explicitamente (ver `ARCHITECTURE-RULES.md` para o detalhamento de cada uma):
 | Reforço — exemplos ❌/✅ em 04-TEST | Mesma lacuna, estendida à camada de teste: `UNIT/RULES.md` ganhou Unit test abrindo conexão real em vez de mockar dependência (deixa de ser Unit); `CONTRACT/RULES.md` ganhou par de módulo escrito à mão em vez de parametrizado sobre todos os módulos descobertos, e teste de forma abrindo infra real; `INTEGRATION/RULES.md` ganhou teste dependendo de estado deixado por outro teste (quebra fora de ordem/paralelo) (2026-07-19) |
 | Reforço — exemplos ❌/✅ em 00-PRINCIPLES, AGENTS, CHECKLISTS | Fecha a cobertura de exemplos em todo o rulebook. `ARCHITECTURE-RULES.md` ganhou o par da regra de ouro (módulo acessando código privado de outro módulo) e tipo específico de módulo colocado em `Kernel`; `NODE-MAP.md` ganhou uma seção "erros comuns de leitura" (inferir cruzável a partir de `Visibilidade: pública`; achar que `Handler` correto implica `Controller` correto); cada `AGENTS/*.md` ganhou um par mostrando o papel invadindo escopo de outro papel (ex: `host-agent` registrando `Repository` direto, `test-agent` "consertando" um teste de arquitetura que falhou em vez de reportar a violação real); `CHECKLISTS/new-module-checklist.md` ganhou exemplos de item marcado como feito sem satisfazer a regra por trás (2026-07-19) |
 | Reforço — exemplos ❌/✅ em `03-MODULES/SHARED/RULES.md` | Último arquivo do rulebook sem exemplo pareado. Ganhou `Shared` referenciando um módulo específico (inverte a única direção de dependência permitida — `Web/ResultExtensions.cs` "sabendo" o que é um `Pedido`) e `Helper` carregando regra de negócio de um módulo (`PedidoHelper.CalcularDescontoFidelidade`) em vez de utilitário técnico puro (2026-07-19) |
+| Validação completa contra o `AnimeList` real | `dotnet build` limpo, `dotnet test` 100% verde em Unit/Contract/Architecture (Integration não executado — Docker indisponível no ambiente de validação), zero ocorrências de `IMediator`/`ISender`/`.SendAsync(`/`IRepositoryBase`/`RepositoryBase<` em todo o código, estrutura física de módulo e de Host idêntica ao diagrama de `03-MODULES/RULES.md` §2 e `01-HOST/RULES.md` §2, arquivo por arquivo. Um gap real foi encontrado e documentado (não corrigido silenciosamente): `04-TEST/INTEGRATION/RULES.md` §5 descreve testar Outbox→RabbitMQ→Consumer e `ICacheService`/Redis contra infra real como escopo pleno, mas o `AnimeList` só tem `Testcontainers.MsSql` — a parte SQL do Outbox é testada, o round-trip completo de RabbitMQ/Redis não. Detalhado em `REFERENCE-IMPLEMENTATION.md` seção 3 (2026-07-19) |
+| Mapa nó → implementação real (`REFERENCE-IMPLEMENTATION.md`) | Criado para que projetos de domínio diferente (não anime-tracking) tenham um arquivo real, compilado e testado para comparar lado a lado com cada linha do catálogo de `NODE-MAP.md` — não só a descrição em prosa. Documenta também o gap de Integration test acima, para que não seja redescoberto do zero em cada projeto novo (2026-07-19) |
+| Governança de bibliotecas (`LIBRARIES.md`) | Criado depois de um projeto externo adicionar `MediatR` sem perguntar, reabrindo `ARCHITECTURE-RULES.md` §7 silenciosamente. Regra de ouro: nenhum pacote NuGet fora da lista já aprovada (extraída do `AnimeList` real: Dapper, dbup-sqlserver, RabbitMQ.Client, StackExchange.Redis, Swashbuckle.AspNetCore 9.0.6 fixado, NetArchTest.Rules, xunit, NSubstitute, Testcontainers.MsSql, etc.) entra num projeto sem confirmação explícita do dev — vale para todo `AGENTS/*.md`, com atenção redobrada ao `migration-agent` (risco de trazer a lib da stack de origem "porque já vinha com o código") (2026-07-19) |
 
 ## Como evoluir este rulebook
 

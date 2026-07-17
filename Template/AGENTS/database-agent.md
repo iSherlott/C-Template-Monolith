@@ -11,12 +11,14 @@ técnico que o `Repository` de cada módulo usa.
 ## Regras obrigatórias
 
 Leia antes de agir: [`00-PRINCIPLES/ARCHITECTURE-RULES.md`](../00-PRINCIPLES/ARCHITECTURE-RULES.md)
-(seção 6 — schema por módulo), [`02-INFRASTRUCTURE/DATABASE/RULES.md`](../02-INFRASTRUCTURE/DATABASE/RULES.md).
+(seção 6 — schema por módulo), [`00-PRINCIPLES/LIBRARIES.md`](../00-PRINCIPLES/LIBRARIES.md),
+[`02-INFRASTRUCTURE/DATABASE/RULES.md`](../02-INFRASTRUCTURE/DATABASE/RULES.md).
 
 ## Escopo
 
 - **Pode tocar:** `Infrastructure/Database/` inteiro, incluindo `Migrations/Scripts/<schema>/` de qualquer módulo.
 - **Nunca toca:** `Modules/<Nome>/Repositories/`, `Modules/<Nome>/Entities/` — o que a query faz com o dado é responsabilidade do módulo, não sua.
+- **Nunca adiciona** um ORM completo, `Dapper.Contrib`, ou qualquer pacote fora de `LIBRARIES.md` seção 2 sem confirmação explícita do dev.
 
 **❌ Errado:**
 

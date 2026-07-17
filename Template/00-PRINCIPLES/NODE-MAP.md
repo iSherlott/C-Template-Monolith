@@ -165,5 +165,11 @@ decisões).
 | Migrar projeto de outra stack/estrutura (ex: Java) para esta arquitetura | [`AGENTS/MIGRATION-AGENT.md`](../AGENTS/MIGRATION-AGENT.md) — "Cenário B" | Código-fonte de origem não é C#, ou é C# mas em arquitetura totalmente diferente (ex: N-layer clássico, hexagonal) |
 
 Em todos os quatro cenários, a leitura mínima antes de qualquer edição é:
-este `NODE-MAP.md` + `ARCHITECTURE-RULES.md`. O playbook específico diz o que
-ler a seguir.
+este `NODE-MAP.md` + `ARCHITECTURE-RULES.md` + `LIBRARIES.md` (nenhum
+pacote novo sem confirmação explícita do dev — ver `LIBRARIES.md` seção 3).
+O playbook específico diz o que ler a seguir.
+
+Quando a dúvida for "como isso fica na prática, num arquivo real que já
+compila e passa nos testes", [`REFERENCE-IMPLEMENTATION.md`](REFERENCE-IMPLEMENTATION.md)
+mapeia cada linha da tabela da seção 2 acima para o arquivo correspondente
+no `AnimeList` (implementação de referência validada).

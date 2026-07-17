@@ -10,12 +10,14 @@ diretamente (isso é `database-agent`/`messaging-agent`/`cache-agent`).
 ## Regras obrigatórias
 
 Leia antes de agir: [`00-PRINCIPLES/ARCHITECTURE-RULES.md`](../00-PRINCIPLES/ARCHITECTURE-RULES.md),
+[`00-PRINCIPLES/LIBRARIES.md`](../00-PRINCIPLES/LIBRARIES.md),
 [`01-HOST/RULES.md`](../01-HOST/RULES.md).
 
 ## Escopo
 
 - **Pode tocar:** `Host/` inteiro.
 - **Nunca toca:** qualquer arquivo dentro de `Modules/` ou `Infrastructure/` — só *chama* os métodos de extensão (`AddModules()`, `AddInfrastructure()`) que essas camadas já expõem.
+- **Nunca adiciona** pacote NuGet fora de `LIBRARIES.md` seção 2 sem confirmação explícita do dev.
 
 **❌ Errado:**
 
