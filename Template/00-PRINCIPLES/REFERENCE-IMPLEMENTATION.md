@@ -24,7 +24,7 @@ Verificado em `2026-07-19` contra `D:\My_Code\C#\AnimeList`:
 |---|---|
 | `dotnet build` | Limpo — 0 erros, 0 avisos |
 | `dotnet test` (Unit + Contract + Architecture — não exigem Docker) | 100% verde |
-| `dotnet test` (Integration — exige Docker/Testcontainers) | Não executado nesta verificação (Docker indisponível no ambiente); ver seção 3 sobre a lacuna conhecida |
+| `dotnet test` (Integration — exige Docker/Testcontainers) | Código implementado e revisado (seção 3 — gap fechado), mas não executado nesta verificação: Docker indisponível no ambiente (`DockerUnavailableException` — falha idêntica à que os testes de SQL Server já existentes também têm neste ambiente, não é defeito do código novo). **Pendente: rodar `dotnet test` com Docker Desktop ativo para confirmar execução real antes de considerar 100% fechado.** |
 | `grep` por `IMediator`/`ISender`/`.SendAsync(`/`IRepositoryBase`/`RepositoryBase<` em todo o código | Zero ocorrências |
 | Estrutura física de módulo (`Pessoas` usado como amostra) | Idêntica ao diagrama de `03-MODULES/RULES.md` §2 e ao catálogo de `NODE-MAP.md` §2, arquivo por arquivo |
 | Estrutura física do `Host` | Idêntica a `01-HOST/RULES.md` §2 |
@@ -61,7 +61,7 @@ mesmo padrão.
 | `Modules/<N>/Dictionary/<N>Dictionary.cs` + `.resx` | `Modules/Pessoas/Dictionary/PessoasDictionary.cs` + `.resx` |
 | `Test/<N>/Unit/` | `Test/Pessoas/Unit/` |
 | `Test/<N>/Contract/` | `Test/Pessoas/Contract/` |
-| `Test/<N>/Integration/` | `Test/Pessoas/Integration/` (ver seção 3 sobre o que de fato é validado aqui) |
+| `Test/<N>/Integration/` | `Test/Pessoas/Integration/` (SQL real); `Test/Watchlist/Integration/RabbitMqOutboxPublishingTests.cs` e `Test/Match/Integration/{ProgressoAtualizadoConsumerTests,RedisCacheServiceTests}.cs` (RabbitMQ/Redis reais — ver seção 3) |
 | `Test/Architecture/` | `Test/Architecture/` |
 
 **Nota sobre `Infrastructure/Database`:** o `NODE-MAP.md` usa
@@ -72,35 +72,55 @@ os cria). Isso não é uma divergência — é o próprio `DATABASE/RULES.md`
 definindo o nome específico para essa camada; `NODE-MAP.md` generaliza
 porque `Cache`/`Messaging` usam `Implementation/` como nome literal.
 
-## 3. Lacuna conhecida — Integration test de Messaging/Cache
+## 3. Gap de Integration test de Messaging/Cache — fechado em `2026-07-19`
 
 `04-TEST/INTEGRATION/RULES.md` §5 documenta como escopo pleno testar o
 fluxo `Handler` grava estado + Outbox → `OutboxPublisherService` →
 RabbitMQ → `Consumer` idempotente, e `ICacheService` com TTL real
 expirando, ambos contra infraestrutura real via Testcontainers.
+Originalmente o `AnimeList` só validava o lado SQL disso. Fechado a
+pedido explícito do dev — `Testcontainers.RabbitMq`/`Testcontainers.Redis`
+adicionados via `LIBRARIES.md` §3 (confirmação explícita, não silenciosa).
 
-**O `AnimeList` real não valida essa parte.** Só `Testcontainers.MsSql`
-está referenciado nos projetos de `Integration` (`LIBRARIES.md` §2) — o
-que é de fato testado contra infraestrutura real é:
+| O que é testado | Onde | Cobertura |
+|---|---|---|
+| `Repository` executando SQL real contra o schema do módulo | `Test/Pessoas/Integration/PessoaRepositoryTests.cs` e equivalentes | Já cobria |
+| `IEventBus.PublishAsync` grava a linha certa em `outbox_messages`, mesma transação | `Test/Watchlist/Integration/EventBusOutboxTests.cs` | Já cobria |
+| `OutboxPublisherService` publica de fato no RabbitMQ real (consumidor de verificação recebe a mensagem, `processed_on` é marcado) | `Test/Watchlist/Integration/RabbitMqOutboxPublishingTests.cs` | **Novo** |
+| `ProgressoAtualizadoConsumer` processa mensagem recebida de um broker RabbitMQ real e grava `match.pessoa_anime_assistido` | `Test/Match/Integration/ProgressoAtualizadoConsumerTests.cs` | **Novo** |
+| Idempotência do `Consumer` contra redelivery real (mesmo `event_id` entregue duas vezes → processado uma vez) | `Test/Match/Integration/ProgressoAtualizadoConsumerTests.cs` (`HandleAsync_DeveSerIdempotente_...`) | **Novo** |
+| `ICacheService`/`RedisCacheService` — cache-aside real (segunda chamada não recalcula) e TTL expirando de verdade | `Test/Match/Integration/RedisCacheServiceTests.cs` | **Novo** |
 
-- `Repository` executando SQL real contra o schema do módulo (`SqlServer`
-  via Testcontainers) — **coberto**, ex: `PessoaRepositoryTests`.
-- Que `IEventBus.PublishAsync` grava a linha certa na tabela
-  `outbox_messages`, na mesma transação — **coberto**, ver
-  `EventBusOutboxTests` em `Test/Watchlist/Integration/`.
-- Que `OutboxPublisherService` de fato publica no RabbitMQ real, e que
-  `ProgressoAtualizadoConsumer` (o único `Consumer` real do projeto)
-  processa e marca idempotência corretamente contra um broker real —
-  **não coberto**. Não existe `Testcontainers.RabbitMq` em nenhum
-  `.csproj`.
-- `ICacheService` contra um Redis real, TTL expirando de fato — **não
-  coberto**. Não existe `Testcontainers.Redis` em nenhum `.csproj`.
+**Detalhes de implementação que um projeto novo replicando este padrão
+precisa saber** (não óbvios pela simples leitura do `RULES.md`):
 
-Um projeto novo que precisa dessa cobertura completa não está "quebrando
-o padrão" ao adicionar `Testcontainers.RabbitMq`/`Testcontainers.Redis` —
-está fechando uma lacuna que o próprio `AnimeList` deixou aberta. Ainda
-assim, a adição desses pacotes segue o processo normal de
-`LIBRARIES.md` §3 (perguntar antes, não silenciosamente).
+- `WatchlistIntegrationFixture`/`MatchIntegrationFixture` agora sobem os
+  três containers em paralelo (`Task.WhenAll`) — subir sequencialmente
+  seria correto mas desnecessariamente mais lento por suíte.
+- `RabbitMqOptions` (`HostName`/`Port`/`UserName`/`Password`) é montado a
+  partir de `new Uri(rabbitContainer.GetConnectionString())` — o
+  container expõe uma URI `amqp://user:pass@host:port/`, não campos
+  separados.
+- O teste de publish real declara sua própria fila de verificação
+  (`test.verificacao-outbox-publishing`) e consome com `RabbitMQ.Client`
+  puro — não reaproveita `RabbitMqConsumerBase<TEvent>` porque o objetivo
+  é observar a mensagem chegando no exchange, não processar um `Command`.
+- `OutboxPublisherService`/`ProgressoAtualizadoConsumer` são
+  `BackgroundService` — o teste chama `StartAsync(CancellationToken.None)`
+  diretamente (não precisa de `IHost` completo) e sempre `StopAsync` num
+  `finally`, com polling (não `Thread.Sleep` fixo) até a condição
+  esperada aparecer no banco, com timeout.
+- Teste de idempotência do `Consumer` publica o **mesmo evento duas
+  vezes** e confirma `COUNT(*) FROM match.processed_messages WHERE
+  event_id = @Id` continua `1` — essa é a prova real de que a checagem de
+  `RabbitMqConsumerBase` (`CONSUMERS/RULES.md` §3) funciona contra um
+  broker de verdade, não só em teoria.
+
+**Não executado neste ambiente** (Docker indisponível) — ver seção 1.
+`dotnet build` confirma que o código compila e usa a API correta dos
+pacotes `Testcontainers.RabbitMq`/`Testcontainers.Redis` `4.13.0`; rodar
+`dotnet test` com Docker Desktop ativo é o passo que falta para fechar a
+validação por completo.
 
 ## 4. Como usar este arquivo num projeto de domínio diferente
 

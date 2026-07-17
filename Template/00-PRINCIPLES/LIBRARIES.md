@@ -42,6 +42,8 @@ tomada. Qualquer pacote **fora** desta lista exige o processo da seção 3.
 | `xunit` + `xunit.runner.visualstudio` | `2.9.2` / `2.8.2` | `Test/*` | Framework de teste |
 | `NSubstitute` | `6.0.0` | `Test/*/Unit` | Mock (`04-TEST/UNIT/RULES.md`) |
 | `Testcontainers.MsSql` | `4.13.0` | `Test/*/Integration` | SQL Server real em Docker (`04-TEST/INTEGRATION/RULES.md`) |
+| `Testcontainers.RabbitMq` | `4.13.0` | `Test/*/Integration` (só nos módulos que publicam/consomem evento) | RabbitMQ real em Docker — fecha o gap de `Outbox → RabbitMQ → Consumer` (`04-TEST/INTEGRATION/RULES.md` §5, `REFERENCE-IMPLEMENTATION.md` §3) |
+| `Testcontainers.Redis` | `4.13.0` | `Test/*/Integration` (só nos módulos que usam `ICacheService`) | Redis real em Docker — fecha o gap de TTL real (`04-TEST/INTEGRATION/RULES.md` §5, `REFERENCE-IMPLEMENTATION.md` §3) |
 | `Microsoft.NET.Test.Sdk` + `coverlet.collector` | `17.12.0` / `6.0.2` | `Test/*` | SDK de teste + cobertura |
 
 **Hashing de senha não usa pacote externo** (`BCrypt.Net-Next` e
@@ -49,13 +51,6 @@ similares **não** são necessários) — `Pbkdf2PasswordHasher`
 (`Infrastructure/Security/Implementation/`) usa `Rfc2898DeriveBytes`, nativo
 do BCL. Antes de propor uma lib de hashing nova, confirmar que o BCL
 realmente não cobre o caso, porque neste projeto ele cobre.
-
-**`Testcontainers.RabbitMq`/`Testcontainers.Redis` não estão na lista** —
-gap conhecido, documentado em `REFERENCE-IMPLEMENTATION.md` seção 3
-(`04-TEST/INTEGRATION/RULES.md` §5 descreve esse teste como parte do
-escopo pleno, mas o `AnimeList` real só valida o lado SQL do Outbox). Se
-um projeto precisar fechar essa lacuna, é adição de pacote nova — segue o
-processo da seção 3 mesmo assim.
 
 ## 3. Processo para propor um pacote fora da lista
 
