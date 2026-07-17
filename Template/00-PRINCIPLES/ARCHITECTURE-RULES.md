@@ -37,6 +37,31 @@ resto (`Entities`, `Repositories`, `Services`, `Handlers`, `Commands`,
 - `Entities` nunca são expostas fora do módulo — o que atravessa a fronteira são `Dtos`.
 - Um módulo não pode injetar `Repository`, `Service` ou `Handler` de outro módulo. Só pode injetar a interface pública `I<NomeModulo>` — declarada em `Modules/Shared/Contracts/`, não dentro do módulo publicador (ver seção 4).
 
+**❌ Errado — módulo Estoque acessando código privado do módulo Vendas:**
+
+```csharp
+// dentro de Modules/Estoque/Handler/ReservarEstoqueHandler.cs
+using Vendas.Repositories; // ❌ nem compila — Estoque.csproj não tem ProjectReference pra Vendas (seção 5)
+using Vendas.Entities;     // ❌ mesma coisa
+
+public class ReservarEstoqueHandler
+{
+    private readonly IPedidoRepository _pedidoRepository; // ❌ Repository de outro módulo injetado direto
+}
+```
+
+**✅ Correto — só a interface pública do módulo publicador, vinda de `Shared`:**
+
+```csharp
+// dentro de Modules/Estoque/Handler/ReservarEstoqueHandler.cs
+using Shared.Contracts; // ✅ único using que cruza módulo
+
+public class ReservarEstoqueHandler
+{
+    private readonly IVendasModule _vendasModule; // ✅ interface pública, Modules/Shared/Contracts/
+}
+```
+
 ## 4. Os dois canais de comunicação entre módulos
 
 | Canal | Localização | Natureza | Quando usar |
@@ -194,6 +219,23 @@ foreach (var assistido in pessoaA.Assistidos)
 - **Contracts** contém as interfaces `I<NomeModulo>` e os `IntegrationEvents` publicados — cada tipo aqui *pertence* a um módulo específico (é a superfície pública dele), mesmo vivendo fisicamente em `Shared`. Diferente de `Kernel`, onde nada pode ser específico de um módulo.
 - Se um tipo em `Kernel` só faz sentido para um módulo específico, ele não pertence lá — é erro de design, deve voltar para dentro do módulo (isso não se aplica a `Contracts`, que é o lugar certo para tipo específico de módulo que precisa ser público).
 - `Shared` nunca depende de nenhum módulo específico (dependência é sempre módulo → Shared, nunca o contrário). `Shared` pode depender de `Infrastructure` (ex: `Contracts.IntegrationEvents` herda `IntegrationEvent`, definido em `Infrastructure/Messaging` — `MESSAGING/RULES.md` seção 4).
+
+**❌ Errado — tipo específico de um módulo colocado em `Kernel` "porque parecia genérico":**
+
+```csharp
+// Modules/Shared/Kernel/StatusPedido.cs — ❌ StatusPedido é conceito do módulo Vendas, não genérico
+public enum StatusPedido { Aberto, Confirmado, Cancelado }
+```
+
+**✅ Correto — fica dentro do próprio módulo; só o que é genuinamente genérico vai para `Kernel`:**
+
+```csharp
+// Modules/Vendas/Entities/StatusPedido.cs — ✅ privado ao módulo, nunca aparece em Contracts
+public enum StatusPedido { Aberto, Confirmado, Cancelado }
+
+// Modules/Shared/Kernel/Result.cs — ✅ isso sim é genérico, sem significado de negócio próprio
+public readonly record struct Result<T>(bool IsSuccess, T? Value, Error? Error);
+```
 
 ## 9. Enforcement — como estas regras são validadas
 

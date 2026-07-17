@@ -45,6 +45,29 @@ fora do lugar, nomenclatura inconsistente, ou nós faltando.
      é Repository, mas viola a regra "sem Repository<T> genérico" — vira
      achado de anti-padrão (seção 9 de 03-MODULES/RULES.md), não só um
      problema de pasta.
+```
+
+**❌ Errado — classificar pelo nome da pasta, não pelo comportamento:**
+
+```
+Arquivo: Modules/Vendas/Services/PedidoOrquestracao.cs
+❌ "está em Services/, então é um Service — deixa como está"
+   (mas o conteúdo do arquivo injeta IPedidoRepository, IEventBus,
+   IUnitOfWorkFactory e é chamado direto pelo PedidosController — é um
+   Handler disfarçado de Service, só porque nasceu antes da convenção
+   de nome existir)
+```
+
+**✅ Correto — classificar pelo que o arquivo faz, mover se necessário:**
+
+```
+Arquivo: Modules/Vendas/Services/PedidoOrquestracao.cs
+✅ comportamento = orquestra Command/Query, chama Repository/IEventBus,
+   é o ponto de entrada chamado pelo Controller → é HANDLER (NODE-MAP.md
+   §2, linha Modules/<N>/Handler/)
+✅ ação: mover para Modules/Vendas/Handler/PedidoHandler.cs, ajustar
+   using/namespace, rodar build+testes do módulo antes de seguir
+```
 
 3. Relatório de gap por módulo — três listas:
    a. Correto (arquivo já está no nó certo, nada a fazer)

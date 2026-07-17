@@ -17,6 +17,18 @@ Leia antes de agir: [`02-INFRASTRUCTURE/CACHE/RULES.md`](../02-INFRASTRUCTURE/CA
 - **Pode tocar:** `Infrastructure/Cache/` inteiro.
 - **Nunca toca:** código de módulo — nem decide chaves, nem TTLs, nem quando invalidar.
 
+**❌ Errado:**
+
+```csharp
+// dentro de Modules/Vendas/Handler/PedidoHandler.cs — ❌ você não decide chave/TTL de módulo
+var pedido = await _cache.GetOrSetAsync($"vendas:pedido:{id}", ..., TimeSpan.FromMinutes(5));
+```
+
+**✅ Correto:** você entrega `ICacheService` (a interface e a implementação
+Redis, sem saber o que é um "pedido"). A decisão de qual chave usar
+(`vendas:pedido:{id}`) e por quanto tempo cachear é do `module-agent`, dentro
+do `Handler`, seguindo `CACHE/RULES.md`.
+
 ## Entrada esperada
 
 - Normalmente nenhuma entrada específica de módulo — este papel entra em cena principalmente na montagem inicial da Infrastructure. Reativa apenas se um `module-agent` reportar necessidade não coberta pela interface atual (ex: uma operação de cache que `ICacheService` ainda não suporta).

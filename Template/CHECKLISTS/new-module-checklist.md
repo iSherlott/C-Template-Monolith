@@ -7,6 +7,43 @@ consolida a ordem de execução. Usado principalmente pelo
 [`module-agent`](../AGENTS/module-agent.md), coordenado pelo
 [`ORCHESTRATOR`](../AGENTS/ORCHESTRATOR.md).
 
+## Erros comuns ao marcar um item como feito
+
+Marcar a caixa é fácil; o risco é marcar sem o item realmente satisfazer a
+regra que ele resume. Dois exemplos reais:
+
+**❌ Errado — marcar "Handler injetado direto no construtor" (§8) mesmo com um dispatcher genérico:**
+
+```csharp
+public PedidosController(IMediator mediator) => _mediator = mediator; // ❌ isso NÃO satisfaz o item
+```
+
+**✅ Correto — o item só está satisfeito com o `Handler` concreto injetado e `.Handle()` chamado direto:**
+
+```csharp
+public PedidosController(PedidoHandler pedidoHandler) => _pedidoHandler = pedidoHandler; // ✅
+```
+
+**❌ Errado — marcar "Interface em `Contracts/Repositories/`" (§5) com a interface na pasta certa mas implementando `IRepositoryBase<T>` genérico:**
+
+```csharp
+public interface IPedidoRepository : IRepositoryBase<Pedido> { } // ❌ pasta certa, padrão errado
+```
+
+**✅ Correto — pasta certa E sem herança de repositório genérico (`REPOSITORIES/RULES.md` §6.1):**
+
+```csharp
+public interface IPedidoRepository
+{
+    Task InserirAsync(Pedido pedido, IUnitOfWork unitOfWork);
+    Task<Pedido?> ObterPorIdAsync(Guid id);
+}
+```
+
+Regra prática: ao marcar qualquer item deste checklist, reler a frase entre
+parênteses (o "por quê") no `RULES.md` referenciado, não só o texto do item
+— o texto é um resumo, a regra completa é o que efetivamente é exigido.
+
 ## Antes de começar
 
 - [ ] O domínio passa a heurística de "isto merece ser um módulo?" ([`03-MODULES/RULES.md`](../03-MODULES/RULES.md) §8)

@@ -17,6 +17,26 @@ Leia antes de agir: [`00-PRINCIPLES/ARCHITECTURE-RULES.md`](../00-PRINCIPLES/ARC
 - **Pode tocar:** `Host/` inteiro.
 - **Nunca toca:** qualquer arquivo dentro de `Modules/` ou `Infrastructure/` — só *chama* os métodos de extensão (`AddModules()`, `AddInfrastructure()`) que essas camadas já expõem.
 
+**❌ Errado:**
+
+```csharp
+// dentro de Host/Program.cs — ❌ você está registrando um Repository diretamente
+builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
+builder.Services.AddModuleVendas(builder.Configuration); // ❌ módulo listado por nome
+```
+
+**✅ Correto:**
+
+```csharp
+// Host só chama o que Infrastructure/Modules já expõem — nunca nomeia tipo interno
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddModules(builder.Configuration); // descoberta via assembly (01-HOST/RULES.md §3)
+```
+
+Se um módulo precisa de um `Repository` novo registrado, isso é o
+`module-agent` editando o `<Nome>ModuleInstaller.cs` dele — nunca você
+editando `Program.cs`.
+
 ## Entrada esperada
 
 - Confirmação de que `Infrastructure` já expõe `AddInfrastructure(IServiceCollection, IConfiguration)`.

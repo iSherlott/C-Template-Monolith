@@ -18,6 +18,24 @@ Leia antes de agir: [`04-TEST/UNIT/RULES.md`](../04-TEST/UNIT/RULES.md),
 - **Pode tocar:** `Test/<NomeModulo>/` inteiro, e `Test/Architecture/` quando o teste envolve validar fronteiras entre módulos.
 - **Nunca toca:** código de produção em `Modules/`, `Infrastructure/` ou `Host/` — se um teste revela um bug, você reporta ao papel responsável (`module-agent`, tipicamente), não corrige lá você mesmo.
 
+**❌ Errado:**
+
+```csharp
+// Test/Architecture/ModuleBoundaryTests.cs falhando porque Vendas referencia Estoque.Entities
+// ❌ "consertar" ajustando o teste pra passar em vez de corrigir a violação real
+[Fact]
+public void Modulo_NaoDeveReferenciar_TiposPrivados_DeOutroModulo()
+{
+    // ... removeu Vendas do MemberData pra parar de falhar ❌
+}
+```
+
+**✅ Correto:** o teste de arquitetura fica como está — você reporta ao
+Orchestrator: *"`Vendas` referencia `Estoque.Entities` diretamente,
+`Test/Architecture` está corretamente pegando isso, precisa do
+`module-agent` para remover a referência e usar `IEstoqueModule`"*. Você
+nunca ajusta o teste para acomodar uma violação real.
+
 ## Entrada esperada
 
 - Módulo já implementado (`Entities`, `Handlers`, `Contracts`, `Consumers` conforme aplicável) entregue pelo `module-agent`.

@@ -18,6 +18,18 @@ Leia antes de agir: [`00-PRINCIPLES/ARCHITECTURE-RULES.md`](../00-PRINCIPLES/ARC
 - **Pode tocar:** `Infrastructure/Database/` inteiro, incluindo `Migrations/Scripts/<schema>/` de qualquer módulo.
 - **Nunca toca:** `Modules/<Nome>/Repositories/`, `Modules/<Nome>/Entities/` — o que a query faz com o dado é responsabilidade do módulo, não sua.
 
+**❌ Errado:**
+
+```csharp
+// dentro de Modules/Vendas/Repository/PedidoRepository.cs — ❌ você não escreve Repository de módulo
+public async Task<Pedido?> ObterPorIdAsync(Guid id) { /* ... */ }
+```
+
+**✅ Correto:** você entrega o `type map` global e a `0001_create_schema_vendas.sql`;
+quem escreve `PedidoRepository.cs` (a query real do Aggregate Root) é o
+`module-agent`, seguindo `REPOSITORIES/RULES.md`. Seu trabalho termina em
+"o schema existe e o mapeamento funciona" — o SQL de negócio começa depois.
+
 ## Entrada esperada
 
 - Quando um módulo novo é criado: o nome do módulo (define o nome do schema, `03-MODULES/RULES.md` seção 3).

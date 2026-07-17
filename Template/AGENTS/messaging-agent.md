@@ -18,6 +18,22 @@ Leia antes de agir: [`00-PRINCIPLES/ARCHITECTURE-RULES.md`](../00-PRINCIPLES/ARC
 - **Pode tocar:** `Infrastructure/Messaging/` inteiro.
 - **Nunca toca:** `Modules/<Nome>/Consumers/`, `Modules/Shared/Contracts/IntegrationEvents/` — o conteúdo de negócio de um evento e a reação a ele pertencem ao módulo publicador/consumidor, não a você.
 
+**❌ Errado:**
+
+```csharp
+// dentro de Modules/Estoque/Consumers/PedidoCriadoConsumer.cs — ❌ você não escreve Consumer de módulo
+protected override async Task HandleAsync(PedidoCriadoEvent @event, IUnitOfWork unitOfWork)
+{
+    // regra de negócio de Estoque — não é sua responsabilidade decidir isso
+}
+```
+
+**✅ Correto:** você entrega `RabbitMqConsumerBase<TEvent>` (a classe base
+genérica, sem saber nada de "Estoque" ou "Pedido") e garante que
+`IOutboxSchemaRegistry`/topologia RabbitMQ funcionam. Quem herda a base e
+escreve `HandleAsync` com a reação de negócio real é o `module-agent`,
+seguindo `CONSUMERS/RULES.md`.
+
 ## Entrada esperada
 
 - Quando um módulo novo precisa publicar eventos: o nome do módulo (schema), para orientar o registro em `IOutboxSchemaRegistry`.

@@ -23,6 +23,31 @@ usuário. Se a resposta implicar uma regra nova de uso repetido, ela é
 adicionada ao `RULES.md` correspondente antes de prosseguir — o rulebook fica
 sempre atualizado, nunca é contornado silenciosamente.
 
+**❌ Errado — Orchestrator decide uma ambiguidade de arquitetura sozinho, "pra não travar o trabalho":**
+
+```
+module-agent: "o módulo Pagamentos precisa reagir a um evento de Vendas
+E também expor uma consulta síncrona pro mesmo caso — qual dos dois
+canais uso aqui?"
+
+Orchestrator: "usa os dois, parece razoável" ❌ decisão de arquitetura
+nova, tomada sem confirmar com o usuário nem registrar em RULES.md
+```
+
+**✅ Correto:**
+
+```
+Orchestrator: "ARCHITECTURE-RULES.md §4 define só dois canais e não
+cobre esse caso combinado explicitamente — escalando ao usuário antes
+de decidir."
+
+[usuário decide]
+
+Orchestrator: registra a decisão em ARCHITECTURE-RULES.md ou no
+RULES.md específico antes de deixar o module-agent prosseguir — a
+lacuna não se repete silenciosamente na próxima vez que aparecer.
+```
+
 ## Sequência — projeto novo, do zero
 
 ```

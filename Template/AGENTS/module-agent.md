@@ -74,6 +74,28 @@ já definidas em `ARCHITECTURE-RULES.md` seção 4:
 Se nenhum dos dois cobre o que você precisa, **não invente um terceiro
 caminho** — reporte ao Orchestrator.
 
+**❌ Errado:**
+
+```csharp
+using Estoque.Repositories; // ❌ nem compila — seu módulo não tem ProjectReference pra Estoque
+
+public class ReservarPedidoHandler
+{
+    private readonly IEstoqueRepository _estoqueRepository; // ❌ Repository de outro módulo
+}
+```
+
+**✅ Correto:**
+
+```csharp
+using Shared.Contracts; // ✅ único using que cruza módulo
+
+public class ReservarPedidoHandler
+{
+    private readonly IEstoqueModule _estoqueModule; // ✅ interface pública de Modules/Shared/Contracts/
+}
+```
+
 ## Handoff
 
 Ao terminar um módulo (ou uma feature dentro dele), reporte ao Orchestrator:

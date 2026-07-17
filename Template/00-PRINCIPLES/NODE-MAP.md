@@ -89,6 +89,47 @@ nem por `ProjectReference`.
 | `Test/<N>/Integration/` | Test | Testa `Repository`/`Consumer` contra infra real | Testcontainers (SQL Server/RabbitMQ/Redis) | Mock de infra | — | `04-TEST/INTEGRATION/RULES.md` |
 | `Test/Architecture/` | Test | Valida as setas da seção 1 via NetArchTest | `Assembly.Load(nome)`, regra de dependência proibida | Teste de comportamento de negócio | — | `ARCHITECTURE-RULES.md` §9 |
 
+### 2.1 Erros comuns de leitura deste catálogo
+
+Duas colunas da tabela acima são fonte frequente de inferência errada — vale
+o par ❌/✅ explícito:
+
+**❌ Errado — "a coluna Visibilidade diz `pública`, logo outro módulo pode injetar/referenciar":**
+
+```
+Modules/<N>/Contracts/Repositories/I<N>Repository.cs → Visibilidade: pública
+❌ inferência errada: "então outro módulo pode injetar IPedidoRepository"
+```
+
+**✅ Correto — `public` aqui é só cascata de acessibilidade do C# (a interface aparece no
+construtor `public` do `Handler`), não uma declaração de fronteira cruzável.
+A pergunta certa é sempre "existe `ProjectReference` de outro módulo para
+este?" (nunca existe — `CONTRACTS/RULES.md` §1.1) — nunca "a visibilidade
+C# permite?":**
+
+```
+✅ inferência correta: nenhum outro módulo tem ProjectReference para este
+   módulo, então IPedidoRepository fisicamente não compila fora dele,
+   mesmo sendo `public`
+```
+
+**❌ Errado — "o nó `Handler/` existe e está correto, logo o Controller está usando ele":**
+
+```
+Modules/Vendas/Handler/PedidoHandler.cs → implementado certinho, testado
+❌ inferência errada: "logo a rota HTTP /api/vendas/pedidos está correta"
+```
+
+**✅ Correto — um `Handler` correto não garante que o `Controller` o injeta;
+são nós separados na tabela acima, cada um com sua própria métrica de
+sanidade (seção 3) — confira as duas independentemente:**
+
+```
+✅ verificar separadamente: Controller/PedidosController.cs injeta
+   PedidoHandler no construtor e chama .Handle(...)? (métrica dedicada,
+   seção 3 abaixo — este foi exatamente o caso real que motivou a métrica)
+```
+
 ## 3. Métricas de sanidade — como uma IA confere se um projeto real bate com o mapa
 
 Estes são checks objetivos, executáveis (por grep, build, ou pelo próprio
