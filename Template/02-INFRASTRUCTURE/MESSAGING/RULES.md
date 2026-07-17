@@ -113,6 +113,23 @@ public interface IEventBus
 - `PublishAsync` **não publica no RabbitMQ diretamente** — ele serializa o evento e grava uma linha na tabela `outbox_messages` do schema do módulo chamador, usando o `IUnitOfWork` já aberto pelo Handler (mesma transação da escrita de domínio — ver `DATABASE/RULES.md` seção 5, e `HANDLER/RULES.md` seção 5 para o padrão de reaproveitar o mesmo `IUnitOfWork` entre `Repository` e `IEventBus`).
 - Isso significa: publicar um evento é sempre parte do mesmo bloco transacional de uma operação de escrita. Não existe `PublishAsync` sem um `IUnitOfWork` em andamento — se o fluxo não grava nada no banco, não há "commit atômico" para garantir, e o caso de uso provavelmente não deveria usar Outbox (avaliar se cabe um publish direto, caso realmente não exista nenhuma escrita associada — exceção rara, documentar quando ocorrer).
 
+**❌ Errado — `Handler` publicando direto no RabbitMQ, pulando o Outbox:**
+
+```csharp
+await _pedidoRepository.InserirAsync(pedido, unitOfWork);
+unitOfWork.Commit();
+
+await _rabbitMqPublisher.PublishAsync("vendas.events", "PedidoCriado", evento); // ❌ se o processo cair aqui, o commit já aconteceu mas o evento nunca é publicado
+```
+
+**✅ Correto — evento gravado na mesma transação, via `IEventBus`:**
+
+```csharp
+await _pedidoRepository.InserirAsync(pedido, unitOfWork);
+await _eventBus.PublishAsync(new PedidoCriadoEvent(pedido.Id), "vendas", unitOfWork); // grava na outbox, mesma transação
+unitOfWork.Commit(); // domínio + evento confirmam juntos ou revertem juntos
+```
+
 ## 6. Tabela `outbox_messages` — uma por schema de módulo
 
 Cada módulo tem sua própria tabela `outbox_messages` **dentro do seu próprio
@@ -166,6 +183,19 @@ idempotente.
 - Padrão recomendado: tabela `processed_messages` (`event_id UNIQUEIDENTIFIER PRIMARY KEY`, `processed_on DATETIME2`) dentro do schema do módulo consumidor. Antes de processar, o Consumer verifica se o `event_id` já existe nessa tabela; se sim, descarta a mensagem (ack sem reprocessar).
 - A inserção em `processed_messages` acontece **na mesma transação** da escrita de negócio disparada pelo evento — mesmo `IUnitOfWork` explícito já usado no restante da camada de Database (`DATABASE/RULES.md` seção 5).
 - `Consumer` implementa/herda `RabbitMqConsumerBase` (fornecida aqui) e vive fisicamente em `Modules/<Nome>/Consumers/`, como classe `internal` (`CONSUMERS/RULES.md` seção 3) — a classe base cuida de deserialização, ack/nack e retry/DLQ; o código de módulo só implementa o que fazer com o evento já deserializado.
+
+**❌ Errado — `Consumer` sem checagem de idempotência (implementação manual, ignorando a base):**
+
+```csharp
+protected override async Task HandleAsync(PedidoCriadoEvent @event, IUnitOfWork unitOfWork)
+{
+    var estoque = await _estoqueRepository.ObterPorProdutoAsync(@event.PedidoId, unitOfWork);
+    estoque.Reservar(@event.Itens); // ❌ se a mensagem for entregue de novo (at-least-once), reserva duas vezes
+    await _estoqueRepository.AtualizarAsync(estoque, unitOfWork);
+}
+```
+
+**✅ Correto — herdar `RabbitMqConsumerBase<TEvent>` (seção 3) já resolve isso automaticamente**, checando/gravando em `processed_messages` antes de chamar `HandleAsync` — o código de módulo não reimplementa essa checagem, só confia que `HandleAsync` só roda uma vez por `event_id`.
 
 ## 10. Anti-padrões — o que nunca pode aparecer aqui
 

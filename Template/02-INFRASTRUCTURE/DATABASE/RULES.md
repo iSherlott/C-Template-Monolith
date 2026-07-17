@@ -209,6 +209,32 @@ unitOfWork.Commit();
 - Métodos de leitura pura (`Query`, `QueryFirstOrDefaultAsync`) podem abrir e fechar sua própria conexão via `IDbConnectionFactory` quando não fazem parte de um fluxo transacional maior.
 - Um `Handler` nunca cria `IUnitOfWork` "por garantia" quando só grava em um único Repository — o custo de criar é baixo, mas simplicidade continua sendo o padrão: se não há necessidade real de atomicidade entre múltiplas escritas, ainda assim usa-se `IUnitOfWork` (é o único caminho que `Repository` aceita), só não se multiplica chamadas desnecessárias.
 
+**❌ Errado — `Repository` abrindo/fechando sua própria transação numa escrita:**
+
+```csharp
+public async Task InserirAsync(Pedido pedido)
+{
+    using var connection = _connectionFactory.CreateConnection(); // ❌ método de escrita sem IUnitOfWork
+    connection.Open();
+    using var transaction = connection.BeginTransaction();        // ❌ transação isolada, não participa do fluxo do Handler
+    await connection.ExecuteAsync(sql, pedido, transaction);
+    transaction.Commit();
+}
+```
+
+Por que é errado mesmo funcionando isoladamente: se o `Handler` também
+precisa gravar em `_estoqueRepository` na mesma operação, as duas escritas
+ficam em transações **diferentes** — uma pode confirmar e a outra falhar,
+exatamente a inconsistência que `IUnitOfWork` compartilhado existe para
+evitar (`HANDLER/RULES.md` §5).
+
+**✅ Correto — `IUnitOfWork` explícito, controlado pelo `Handler` (exemplo completo na seção 5):**
+
+```csharp
+public Task InserirAsync(Pedido pedido, IUnitOfWork unitOfWork) =>
+    unitOfWork.Connection.ExecuteAsync(sql, pedido, unitOfWork.Transaction);
+```
+
 ## 6. Schema por módulo — aplicação prática
 
 - Toda query dentro de um `Repository` referencia o schema do próprio módulo, qualificado explicitamente no SQL: `SELECT * FROM vendas.pedidos WHERE ...`. Nunca depende do `default schema` da conexão.
@@ -317,6 +343,20 @@ public static class SnakeCaseTypeMap
 - Nunca `SELECT *`. Sempre listar as colunas explicitamente — protege contra breaking change silencioso quando alguém adiciona coluna nova na tabela.
 - Query como string inline no método do Repository é aceitável para queries curtas; queries longas/complexas podem virar constante `private const string` no topo da classe do Repository, mas continuam dentro do módulo — nunca em arquivo `.sql` solto fora de `Migrations/`.
 - Sem ORM de mapeamento automático de escrita (nada de `Dapper.Contrib`, `Insert<T>`/`Update<T>` genérico) — todo `INSERT`/`UPDATE`/`DELETE` é SQL explícito escrito à mão no Repository. Mantém o controle total sobre o SQL gerado, coerente com a escolha de Dapper puro sobre um ORM completo.
+
+**❌ Errado:**
+
+```csharp
+var sql = $"SELECT * FROM vendas.pedidos WHERE cliente_id = '{clienteId}'"; // ❌ concatenação (SQL Injection) + SELECT *
+return await connection.QueryAsync<Pedido>(sql);
+```
+
+**✅ Correto:**
+
+```csharp
+const string sql = "SELECT id, cliente_id, total, status FROM vendas.pedidos WHERE cliente_id = @ClienteId";
+return await connection.QueryAsync<Pedido>(sql, new { ClienteId = clienteId });
+```
 
 ## 9. Migrations com DbUp
 

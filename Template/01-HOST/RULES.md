@@ -143,6 +143,29 @@ public static class ModuleRegistration
 }
 ```
 
+**❌ Errado — `Program.cs`/extensão listando módulo por nome ou instanciando tipo interno diretamente:**
+
+```csharp
+public static IServiceCollection AddModules(this IServiceCollection services, IConfiguration configuration)
+{
+    services.AddModuleVendas(configuration);   // ❌ exige editar este arquivo a cada módulo novo
+    services.AddModuleEstoque(configuration);  // ❌ mesma coisa
+    services.AddScoped<IPedidoRepository>(_ => new PedidoRepository(connectionFactory)); // ❌ Host instanciando tipo interno de módulo
+    return services;
+}
+```
+
+**✅ Correto — descoberta via assembly, Host nunca nomeia um módulo (exemplo completo já acima):**
+
+```csharp
+public static IServiceCollection AddModules(this IServiceCollection services, IConfiguration configuration)
+{
+    foreach (var installer in ObterInstallers())
+        installer.Install(services, configuration); // cada módulo se registra sozinho
+    return services;
+}
+```
+
 - Cada módulo expõe **exatamente uma** classe implementando `IModuleInstaller` (interface definida em `Modules/Shared` — ver `SHARED/RULES.md`), com um método `Install(IServiceCollection, IConfiguration)` e, opcionalmente, `Use(IApplicationBuilder)` (default method vazio na interface — só sobrescrito por módulo que precisa registrar algo no pipeline HTTP, ex: um middleware local). Isso substitui o método de extensão `AddModule<Nome>()` de convenções anteriores.
 - **Por que filtrar `RuntimeLibraries` por `lib.Type == "project"` e não por prefixo de nome:** a convenção de nomenclatura sem prefixo composto (seção 2) significa que módulos não compartilham um prefixo comum (`Pessoas`, `Catalogo`, `Watchlist` não têm nada em texto que os agrupe) — filtrar por nome deixou de ser viável. `lib.Type == "project"` é mais robusto: identifica qualquer `ProjectReference` da solução (incluindo `Infrastructure` e `Shared`, que não implementam `IModuleInstaller` e por isso simplesmente não aparecem no resultado do `Where` seguinte), independente de como cada um foi nomeado.
 - **Por que `DependencyContext.Default.RuntimeLibraries` e não `AppDomain.CurrentDomain.GetAssemblies()`:** essa segunda API só enxerga assemblies já carregados na memória no momento da chamada. Se nada no Host referenciar um tipo de um módulo diretamente, o .NET pode nunca ter carregado aquele assembly ainda — o módulo simplesmente não apareceria no scan, **silenciosamente**, sem erro nenhum. `DependencyContext.Default.RuntimeLibraries` lê o `.deps.json` gerado no build, que lista *todo* assembly do qual o Host depende, carregado ou não — é a única fonte confiável para descoberta automática.
@@ -278,6 +301,32 @@ assim que o projeto sobe (`dotnet run`/F5 na IDE):
 ## 4. Configuração (`appsettings`)
 
 - Cada módulo lê sua própria seção namespaced, nunca uma raiz compartilhada: `Modules:Vendas`, `Modules:Estoque`. O Host não sabe (nem precisa saber) o formato interno dessas seções — ele só repassa `IConfiguration` inteiro para o `Install()` de cada `IModuleInstaller`, que extrai sua própria fatia.
+
+**❌ Errado — módulo lendo seção de outro módulo:**
+
+```csharp
+public class VendasModuleInstaller : IModuleInstaller
+{
+    public IServiceCollection Install(IServiceCollection services, IConfiguration configuration)
+    {
+        var limiteEstoque = configuration.GetValue<int>("Modules:Estoque:LimiteMinimo"); // ❌ lendo seção de outro módulo
+        // ...
+    }
+}
+```
+
+**✅ Correto — cada módulo só lê a própria seção; dado de outro módulo vem via `I<OutroModulo>`:**
+
+```csharp
+public class VendasModuleInstaller : IModuleInstaller
+{
+    public IServiceCollection Install(IServiceCollection services, IConfiguration configuration)
+    {
+        var vendasConfig = configuration.GetSection("Modules:Vendas");
+        // se precisar de algo do Estoque, isso é resolvido em runtime pelo Handler via IEstoqueModule, nunca lendo a config dele aqui
+    }
+}
+```
 - `Infrastructure` segue o mesmo princípio: seções próprias (`Infrastructure:Database`, `Infrastructure:Messaging`, `Infrastructure:Cache`), lidas internamente por `AddInfrastructure()`.
 - Segredos (connection strings de produção, credenciais de broker) **nunca** ficam versionados em `appsettings.json`. Usar `appsettings.{Environment}.json` fora do controle de versão, variáveis de ambiente, ou um secret manager — a decisão de qual mecanismo específico fica registrada aqui quando escolhida (pendente).
 - Feature flags globais (que afetam mais de um módulo) vivem no Host. Feature flags que só um módulo usa vivem na seção do próprio módulo.

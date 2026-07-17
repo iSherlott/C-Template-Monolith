@@ -70,6 +70,20 @@ Exemplos: `vendas:pedido:123`, `estoque:produto:456:disponibilidade`.
 - Um módulo nunca lê ou escreve uma chave fora do seu próprio prefixo. Se o Módulo B precisa de um dado que é "dono" do Módulo A, ele chama a interface pública (`Contracts`) do Módulo A — que internamente pode usar seu próprio cache — nunca lê a chave `vendas:*` diretamente.
 - Essa regra espelha o isolamento de schema de banco (`DATABASE/RULES.md` seção 6): cache é dado derivado, mas a fronteira de propriedade é a mesma.
 
+**❌ Errado — Estoque lendo diretamente uma chave que pertence a Vendas:**
+
+```csharp
+// dentro do módulo Estoque
+var pedido = await _cache.GetAsync<PedidoDto>($"vendas:pedido:{pedidoId}"); // ❌ lê prefixo de outro módulo
+```
+
+**✅ Correto — Estoque pede o dado pela fachada pública de Vendas:**
+
+```csharp
+// dentro do módulo Estoque
+var temPedidoAberto = await _vendasModule.ClienteTemPedidoAbertoAsync(clienteId); // I<Modulo> — Vendas decide se/como cacheia isso internamente
+```
+
 ## 6. Padrão de uso — cache-aside
 
 Cache nunca é fonte de verdade — é sempre um atalho para não recalcular/reconsultar algo que já está no banco (fonte de verdade real).
