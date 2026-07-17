@@ -228,6 +228,7 @@ vivendo na própria classe do `Dto`.
 | Capturar exceção de infraestrutura só para virar `Result.Failure(Unexpected)` sem ação de recuperação | Duplica o que o middleware global já faz, esconde erro real do log de exceção |
 | Um `Handler` implementando `IHandler<T,R>` para `Command`s de **substantivos diferentes** (ex: `GeneroHandler` também tratando `CriarAnimeCommand`) | Quebra a regra "banana vs. tomate" (seção 4) — cada Aggregate Root distinta tem seu próprio `Handler` |
 | `switch`/`if` de tipo dentro de um único método `Handle` para tratar comandos diferentes | O ponto de sobrecarga é o próprio C# (múltiplos métodos `Handle`), nunca um dispatch manual dentro de um método genérico |
+| `Handler` implementado corretamente, mas nenhum `Controller` o injeta — a rota HTTP chama um dispatcher genérico (`IMediator`/`ISender`/bus caseiro) em vez de `_handler.Handle(...)` | O `Handler` correto não compensa um `Controller` que reabriu a decisão "sem mediator" — ver `CONTROLLER/RULES.md` seções 3 e 8 para o anti-padrão e o teste de arquitetura que o pega |
 
 ## 10. Enforcement
 
